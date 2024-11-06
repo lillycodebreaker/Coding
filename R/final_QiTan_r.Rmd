@@ -1,0 +1,355 @@
+---
+title: "QM563 - Final Project"
+author: "Qi Tan"
+date: "12/9/2023"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+Please submit this .Rmd file and compiled (Knit) output (as .html or .pdf)
+
+
+Scenario:
+Welcome to Care4All PCPs, the largest Primary Care Network in the state of California! We are glad to have someone with your analytical process on board. We are interested in ensuring that our patients get the highest quality care at the fairest price. To that end, we hired a consultant to perform an analysis of hospitals in California to help us understand 
+1) Which hospitals are the highest quality?
+2) Which hospitals charge the most/least?
+
+Based on our request, the consultant provided data and code for each of those questions. While this was helpful, we want to rewrite the code in a different language and explain it in detail (no comments or explanations were provided). Then, we would like to extend this work to learn about the relationship between health quality and cost for our patients. Therefore, we have laid out 3 tasks. 
+
+*Your Tasks:*
+
+Task 1: Describe hospital quality ratings in California
+  Using code written in R, 1a) Explain the code then 1b) Translate that code into Python, improving it as necessary to best answer the question
+  
+Task 2: Describe procedure prices at hospitals in California
+  Using code written in Python, 2a) Explain the code, then 2b) Translate that code into R, improving it as necessary to best answer the question
+  
+Task 3: Combine Data and Create Visualization
+  Use the data from the first two tasks to determine the relationship between price and quality.
+
+*Hints and Advice*
+
+* The most important thing is that you understand the function of the code and can write code in another language that gives the equivalent output - there is no single correct solution to these tasks
+
+* If you are unsure about what a particular block of code (out of a larger chunk) does, run that bit in isolation and note the changes to the output. 
+* Don't forget to check the Code Companions and live class slides for explanations of functions or equivalencies between the two languages.
+
+
+## Task 1: Hospital quality ratings in the state of California
+For this task, you are given a .csv from *data.medicare.gov/data/hospital-compare* to help answer the question. This dataset contains identifying information for the hospital (Provider ID, Hospital Name, Phone Number, etc.) as well as Medicare-determined quality metrics (Overall rating, national comparison, safety of care, etc.). 
+
+
+### 1a) Explain the code
+Explain in as much detail as possible what the code is doing and how it arrives at the final output table. How does this address the task of describing quality ratings of hospitals in California?
+
+*Add comments in the code and a several sentence summary to complete this task.*
+
+```{r setup, include=FALSE}
+# @@Explanation: code chunks will be shown with output
+knitr::opts_chunk$set(echo = TRUE)
+# @@Explanation: load tidyverse package
+library(tidyverse)
+```
+
+```{r read data, include=FALSE}
+# @@Explanation: read the HospInfo.csv into hosp_info dataframe, make sure the file exists in the current working directory
+hosp_info = read_csv('HospInfo.csv')
+```
+
+```{r 1a Code}
+# @@Explanation: select hospital names with "Acute Care Hospitals" and "CA" 
+hosp_names = hosp_info %>% 
+  filter(`Hospital Type` == "Acute Care Hospitals") %>% #in R we use filter function to filter the records
+  filter(State == "CA") %>%
+  pull(`Hospital Name`) #to select Hospital Name, we just pull function []
+
+# @@Explanation: 
+# @@ creat a new data from from hosp_Info with
+# @@Rename
+# @@--Hospital Name to Hospital
+# @@--Provider ID to Provider_ID
+# @@--Safety of care national comparison to Safety
+# @@--Effectiveness of care national comparison to Effectiveness
+# @@select hospitals with Acute Care Hospitals names and is in CA 
+# @@add a new column Overall_Rating as numeric value of Hospital overall rating
+# @@drop rows where Overall_Rating is na (missing values)
+hosp_info_CA = 
+hosp_info %>% 
+  rename(Hospital = `Hospital Name`,
+         Provider_ID = `Provider ID`,
+         Safety = `Safety of care national comparison`,
+         Effectiveness = `Effectiveness of care national comparison`
+         ) %>% 
+  filter(Hospital %in% hosp_names, State == "CA") %>% #by passing hosp_names to the in keyword, we filter the records with hospitals in CA and is Acute Care Hospitals 
+  mutate(Overall_Rating = as.numeric(`Hospital overall rating`)) %>% #add a new column which is the numeric value of Hospital overall rating 
+  drop_na(Overall_Rating) #drop NaN value from above function as.numeric
+
+# @@Explanation: select top 7 best overall rating(descending) hospital names(ascending) from hosp_info_CA
+hosp_info_CA %>% 
+  arrange(desc(Overall_Rating), Hospital) %>% 
+  head(7)
+
+# @@Explanation: grouping the hosp_info_CA data by Overall_Rating and Safety
+# @@and then counting the number of observations in each group.
+hosp_info_CA %>% 
+  group_by(Overall_Rating, Safety) %>% 
+  count()
+
+# @@Explanation: write hosp_info_CA to hosp_info_CA.csv file
+write_csv(hosp_info_CA, 'hosp_info_CA.csv')
+```
+### 1b) (Translation to Python, see .ipynb)
+```{r}
+# @@First approach
+# @@Explanation: select top best overall rating(descending) hospitals(name ascending) from hosp_info_CA
+highest_quality <- hosp_info_CA %>%
+  arrange(desc(Overall_Rating), Hospital) %>%
+  slice(1)
+
+# Display the results
+highest_hospital <- highest_quality$Hospital
+highest_rating <- highest_quality$Overall_Rating
+
+cat("Which hospitals are the highest quality (Approach 1)?:", highest_hospital[1], ", Total Rating:", highest_rating[1], ".\n")
+
+# @@Second approach
+# @@With the above code
+# @@highest_quality <- hosp_info_CA %>%
+# @@  arrange(desc(Overall_Rating), Hospital) %>%
+# @@  head(7)
+# @@there are 6 records that have rating of 5
+# @@In this case, I would bring the following colums 
+# @@--Mortality national comparison
+# @@--Safety of care national comparison
+# @@--Readmission national comparison
+# @@--Patient experience national comparison
+# @@--Effectiveness of care national comparison
+# @@--Timeliness of care national comparison
+# @@--Efficient use of medical imaging national comparison
+# @@as additional ways to measure "which hospital are the highest quality".
+
+# @@First add columns based on the value of comparison
+# @@Define a function to map values to numbers
+map_to_number <- function(value) {
+  if (value == 'Below the national average') {
+    return(1)
+  } else if (value == 'Same as the national average') {
+    return(2)
+  } else if (value == 'Above the national average') {
+    return(3)
+  } else {
+    return(0)
+  }
+}
+
+hosp_info_CA$Mortality_Rating <- sapply(hosp_info_CA$`Mortality national comparison`, map_to_number)
+hosp_info_CA$Safety_Rating <- sapply(hosp_info_CA$Safety, map_to_number)
+hosp_info_CA$Readmission_Rating <- sapply(hosp_info_CA$`Readmission national comparison`, map_to_number)
+hosp_info_CA$PatientExp_Rating <- sapply(hosp_info_CA$`Patient experience national comparison`, map_to_number)
+hosp_info_CA$EffctCare_Rating <- sapply(hosp_info_CA$Effectiveness, map_to_number)
+hosp_info_CA$TimelinessCare_Rating <- sapply(hosp_info_CA$`Timeliness of care national comparison`, map_to_number)
+hosp_info_CA$EffUseOfMedImaging_Rating <- sapply(hosp_info_CA$`Efficient use of medical imaging national comparison`, map_to_number)
+
+# @@I am not sure about the coefficient of the above ratings, I will use 1/7 for each column
+# @@Calculate the Overall_Rating_Compound column
+hosp_info_CA$Mortality_Rating <- as.numeric(hosp_info_CA$Mortality_Rating, NA.rm = TRUE)
+hosp_info_CA$Safety_Rating <- as.character(hosp_info_CA$Safety_Rating)
+hosp_info_CA$Safety_Rating <- as.numeric(hosp_info_CA$Safety_Rating, NA.rm = TRUE)
+hosp_info_CA$Readmission_Rating <- as.character(hosp_info_CA$Readmission_Rating)
+hosp_info_CA$Readmission_Rating <- as.numeric(hosp_info_CA$Readmission_Rating, NA.rm = TRUE)
+hosp_info_CA$PatientExp_Rating <- as.character(hosp_info_CA$PatientExp_Rating)
+hosp_info_CA$PatientExp_Rating <- as.numeric(hosp_info_CA$PatientExp_Rating, NA.rm = TRUE)
+hosp_info_CA$EffctCare_Rating <- as.character(hosp_info_CA$EffctCare_Rating)
+hosp_info_CA$EffctCare_Rating <- as.numeric(hosp_info_CA$EffctCare_Rating, NA.rm = TRUE)
+hosp_info_CA$TimelinessCare_Rating <- as.character(hosp_info_CA$TimelinessCare_Rating)
+hosp_info_CA$TimelinessCare_Rating <- as.numeric(hosp_info_CA$TimelinessCare_Rating, NA.rm = TRUE)
+hosp_info_CA$EffctCare_Rating <- as.character(hosp_info_CA$EffctCare_Rating)
+hosp_info_CA$EffctCare_Rating <- as.numeric(hosp_info_CA$EffctCare_Rating, NA.rm = TRUE)
+
+# @@Calculate 'Overall_Rating_Compound' with error handling
+hosp_info_CA$Overall_Rating_Compound <- (hosp_info_CA$Overall_Rating +
+  (1/7) * as.numeric(hosp_info_CA$Mortality_Rating) +
+  (1/7) * as.numeric(hosp_info_CA$Safety_Rating) +
+  (1/7) * as.numeric(hosp_info_CA$Readmission_Rating) +
+  (1/7) * as.numeric(hosp_info_CA$PatientExp_Rating) +
+  (1/7) * as.numeric(hosp_info_CA$EffctCare_Rating) +
+  (1/7) * as.numeric(hosp_info_CA$TimelinessCare_Rating) +
+  (1/7) * as.numeric(hosp_info_CA$EffUseOfMedImaging_Rating)
+)
+
+# @@this was achieved by using Panda's sort_values function
+# @@Sort the DataFrame by Overall_Rating_Compound and Hospital in descending and ascending order respectively
+# @@and place NaN values last
+highest_quality_compound <- hosp_info_CA[order(-hosp_info_CA$Overall_Rating_Compound, hosp_info_CA$Hospital, na.last = TRUE), ]
+
+# @@Select the first row from the sorted dataframe
+highest_quality_compound <- highest_quality_compound[1, , drop = FALSE]
+
+# @@Displaying the results
+cat("Which hospitals are the highest quality (Approach 2)?: ", highest_quality_compound$Hospital[1], " , Total Rating: ", highest_quality_compound$Overall_Rating[1], ", Total compound rating: ", highest_quality_compound$Overall_Rating_Compound[1], ".\n")
+
+# @@Personally I will use approach 2 because it has more compond calculation to rating
+```
+```{r 1a Code Explanation}
+# @@Explanation: How does this address the task of describing quality ratings of hospitals in California?
+# @@the following code answers the question: Which hospitals are the highest quality?
+# @@it returns top 7 overall_rating hospitals in California
+# @@--COMMUNITY HOSPITAL OF THE MONTEREY PENINSULA
+# @@--GOLETA VALLEY COTTAGE HOSPITAL		
+# @@--METHODIST HOSPITAL OF SOUTHERN CA	
+# @@--SANTA BARBARA COTTAGE HOSPITAL		
+# @@--SCRIPPS GREEN HOSPITAL	
+# @@--SCRIPPS MEMORIAL HOSPITAL	
+# @@--ALHAMBRA HOSPITAL MEDICAL CENTER
+# hosp_info_CA %>% 
+# arrange(desc(Overall_Rating), Hospital) %>% 
+# head(7)
+
+# @@the following code groups the hosp_info_CA data by Overall_Rating and Safety
+# @@we can see clearly how many records are in each rating for each safety category.
+# @@we can see that most of the records are with rating of 2/3/4
+# @@the highest number of count is in : rating: 3, safety: Same as the national average, count:	69
+# hosp_info_CA %>% 
+#   group_by(Overall_Rating, Safety) %>% 
+#   count()
+
+# @@the following code writes the dataframe with renamed columns, along with new additional column overall_rating to hosp_info_CA.csv
+# write_csv(hosp_info_CA, 'hosp_info_CA.csv')
+
+# @@by the end, I not only used Overall_Rating, I used  
+# @@--Mortality national comparison
+# @@--Safety of care national comparison
+# @@--Readmission national comparison
+# @@--Patient experience national comparison
+# @@--Effectiveness of care national comparison
+# @@--Timeliness of care national comparison
+# @@--Efficient use of medical imaging national comparison
+# @@as additional ways to measure which hospital are the highest quality? 
+# @@I used 1/7 as the coefficient of the above ratings to calculate compound rating to find out best hospital
+```
+## Task 2: Hospital Costs in the state of California
+***Motivating Question*** : **Which hospitals charge the most/least?**
+
+For this task, you are given a .csv from *https://data.cms.gov/Medicare-Inpatient/Inpatient-Prospective-Payment-System-IPPS-Provider/97k6-zzx3* to help investigate hospital costs in California. The dataset contains identifying information for the hospital (Provider ID, Hospital Name, Address, Zip Code), the diagnosis-related group (DRG), and associated costs (Average Total Payments, Average Medicare Payments)
+
+*Average Total Payments*:
+The average of Medicare payments to the provider for the DRG including the DRG amount, teaching,  disproportionate share, capital, and outlier payments for all cases. Also included are co-payment and deductible amounts that the patient is responsible for. 
+
+### 2a) (Code Explanation, see.ipynb)
+```{r}
+# @@Explanation: read the Inpatient_Prospective_Payment_System__IPPS__Provider_Summary_for_the_Top_100_Diagnosis-Related_Groups__DRG__-_FY2011.csv 
+# @@into costs dataframe, make sure the file exists in the current working directory
+costs = read_csv("Inpatient_Prospective_Payment_System__IPPS__Provider_Summary_for_the_Top_100_Diagnosis-Related_Groups__DRG__-_FY2011.csv")
+```
+
+
+```{r}
+# @@ update costs with
+# @@Rename
+# @@--'DRG Definition' to 'DRG'
+# @@--' Average Total Payments ' to 'Total_Cost' (need to include space in header)
+# @@--' Total Discharges ' to 'Count_Discharges' (need to include space in header)
+# @@Note: R automatically strip out spaces
+costs = costs %>%
+    rename(DRG = 'DRG Definition',
+           Total_Cost = 'Average Total Payments',
+           Count_Discharges = 'Total Discharges')
+
+# @@first we drop na for DRG column then split
+costs = costs %>%
+  drop_na(DRG)
+
+# @@Explanation: add 2 new columns DRG_Code: first part from DRG by splitting the value with - 
+# @@DRG_Description: second part from DRG by splitting the value with -
+split_columns = strsplit(costs$DRG, "-")
+costs$DRG_Code <- sapply(split_columns, `[`, 1)
+costs$DRG_Description <- sapply(split_columns, `[`, 2)
+
+# @@Explanation: drops column DRG
+costs = costs  %>% select(-DRG)
+
+# @@Explanation: add a new column Avg_DRG_Cost, assign it with: calculate average of total cost,
+# @@by ignoring na values grouping by the DRG_code
+costs <- costs %>%
+  group_by(DRG_Code) %>%
+  mutate(Avg_DRG_Cost = mean(Total_Cost, na.rm = TRUE)) %>%
+  ungroup() # @@ungroup to reset index
+
+# @@Explanation: add a new column Cost_Diff, assign it with the difference of Total_Cost and average cost from same DRG_code group
+costs['Cost_Diff'] = costs['Total_Cost'] - costs['Avg_DRG_Cost']
+```
+
+```{r}
+# @@Explanation: create a new data frame top_drgs
+# @@group by DRG_Code, calculate sum of Discharges Count by descending order and provider name by ascending order
+top_drgs = costs %>%
+            group_by(DRG_Code) %>%
+            summarise(Total_Discharges = sum(Count_Discharges, na.rm = TRUE)) %>%
+            arrange(desc(Total_Discharges), 'Provider Name')
+
+# @@return top 7 rows from top_drgs
+head(top_drgs, 7)
+```
+```{r}
+# @@Explanation: output the costs dataframe with DRG_code of 470 and CA as the provider state
+# @@by not outputing index to the csv file
+costs_CA = costs %>%
+  filter(`Provider State` == 'CA')
+
+# @@I have a bit issue with calculating DRG_Code==470 so I used < > operators instead
+costs_CA_470 = costs_CA %>%
+  filter(DRG_Code < 471) %>%
+  filter(DRG_Code > 470)
+write_csv(costs_CA_470, 'Hip_Replacement_Costs_by_Hosp_R.csv')
+```
+
+### 2b) Translate the Python Code to R
+Translate the provided code from Python to R, improving it if neccessary to best address the question: **Which hospitals cost the most/least?**. 
+```{r}
+# @@Explanation: to answer the question: Which hospitals in California cost the most/least?
+# @@Explanation: rename Provider Id to prepare for the merge
+names(costs)[names(costs) == 'Provider Id'] <- 'Provider_ID'
+
+# @@Explanation: merge hosp_info_CA with costs, this is inner join because I want to make sure there is a cost associated with
+# @@the hospital 
+hospital_costs <- merge(hosp_info_CA, costs, by = 'Provider_ID', all = FALSE)
+
+# @@Explanation: Summing the costs for each hospital
+total_costs_per_hospital <- hospital_costs %>%
+  group_by(Hospital) %>%
+  summarise(Total_Cost = sum(Total_Cost, na.rm = TRUE))
+
+# @@Sorting the results with descending order
+sorted_costs <- total_costs_per_hospital %>%
+  arrange(desc(Total_Cost))
+
+# @@Identifying the hospitals with the highest and lowest costs
+most_expensive_hospital <- sorted_costs$Hospital[1]
+least_expensive_hospital <- sorted_costs$Hospital[nrow(sorted_costs)]
+
+# @@Displaying the results
+cat("Hospital with the highest cost:", most_expensive_hospital, ", Total Cost:", sorted_costs$Total_Cost[1], "\n")
+cat("Hospital with the lowest cost:", least_expensive_hospital, ", Total Cost:", sorted_costs$Total_Cost[nrow(sorted_costs)], "\n")
+```
+
+Provide your insights from the output of the code.
+```{r 2b Code Explanation}
+# @@Explanation: Which hospitals has the highest/lowest cost?
+# @@I need to first merge the cost and HospInfo to get hospital names and cost into one data frame
+# @@I did sorting by Total Cost descendingly and chose top 1 record and low 1 record 
+# @@for the most and least expensive hospitals
+```
+
+
+## Task 3: What is the relationship between cost and quality?
+Is it the case that "you get what you pay for"? Now that we have completed some preliminary analyses of the cost and quality of Hospitals in the state of California, we would like to take a look at their relationship jointly. That is, we would like to see how cost relates to quality by combining the output from the first two questions.
+
+With the language of your choosing (either R or Python), 
+
+
+```{r}
+# @@I am using Python to answer Task 3
+```
+
+
