@@ -1,0 +1,116 @@
+<% 
+    const body = `
+    <!-- Hero Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="hero-section bg-primary text-white rounded p-5 mb-5">
+                <div class="text-center">
+                    <h1 class="display-4">
+                        <i class="fas fa-swimmer me-3"></i>
+                        Welcome to Swimming Scheduler
+                    </h1>
+                    <p class="lead mb-4">
+                        Coordinate swimming events with your friends easily. 
+                        Create events, propose dates, and find the perfect time when everyone is available!
+                    </p>
+                    <div class="d-flex gap-3 justify-content-center flex-wrap">
+                        <a href="/create-event" class="btn btn-light btn-lg">
+                            <i class="fas fa-plus me-2"></i>Create New Event
+                        </a>
+                        <a href="/events" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-calendar me-2"></i>View Events
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-calendar-alt fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">Total Events</h5>
+                    <h2 class="text-primary" id="totalEvents">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-users fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Active Users</h5>
+                    <h2 class="text-success" id="totalUsers">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-check-circle fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Confirmed Events</h5>
+                    <h2 class="text-info" id="confirmedEvents">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Events -->
+    <div class="row">
+        <div class="col-12">
+            <h3 class="mb-4">
+                <i class="fas fa-clock me-2"></i>Recent Events
+            </h3>
+            <div id="recentEvents" class="row">
+                <!-- Events will be loaded here -->
+            </div>
+            <div class="text-center mt-4">
+                <a href="/events" class="btn btn-primary">
+                    <i class="fas fa-arrow-right me-2"></i>View All Events
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load dashboard data
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Load users count
+                const usersResponse = await axios.get(window.API_URL + '/users');
+                if (usersResponse.data.success) {
+                    document.getElementById('totalUsers').textContent = usersResponse.data.data.length;
+                }
+
+                // Note: For now, we'll show placeholder data for events
+                // In a real implementation, you'd add endpoints to get event statistics
+                document.getElementById('totalEvents').textContent = '0';
+                document.getElementById('confirmedEvents').textContent = '0';
+
+                loadRecentEvents();
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showAlert('Error loading dashboard data. Please check if the backend is running.', 'warning');
+            }
+        });
+
+        async function loadRecentEvents() {
+            // Placeholder for recent events
+            // In a real implementation, you'd have an endpoint to get recent events
+            const recentEventsContainer = document.getElementById('recentEvents');
+            recentEventsContainer.innerHTML = \`
+                <div class="col-12">
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No recent events to display. <a href="/create-event" class="alert-link">Create your first event!</a>
+                    </div>
+                </div>
+            \`;
+        }
+    </script>
+    `;
+%>
+
+<%- include('../components/layout', { title, apiUrl, body }) %>

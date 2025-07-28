@@ -1,0 +1,204 @@
+<% 
+    const body = `
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>Manage Users
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="usersList">
+                        <!-- Users will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-plus me-2"></i>Add New User
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="addUserForm">
+                        <div class="mb-3">
+                            <label for="userName" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="userName" name="name" required 
+                                   placeholder="Enter full name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="userEmail" class="form-label">Email *</label>
+                            <input type="email" class="form-control" id="userEmail" name="email" required 
+                                   placeholder="Enter email address">
+                        </div>
+                        <div class="mb-3">
+                            <label for="userPhone" class="form-label">Phone</label>
+                            <input type="tel" class="form-control" id="userPhone" name="phone" 
+                                   placeholder="Enter phone number">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-plus me-2"></i>Add User
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let users = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUsers();
+        });
+
+        async function loadUsers() {
+            try {
+                const response = await axios.get(window.API_URL + '/users');
+                if (response.data.success) {
+                    users = response.data.data;
+                    displayUsers();
+                } else {
+                    showAlert('Error loading users.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                showAlert('Error loading users. Please check if the backend is running.', 'warning');
+            }
+        }
+
+        function displayUsers() {
+            const usersListHtml = users.length === 0 ? \`
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No users found. Add your first user to get started!
+                </div>
+            \` : \`
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            \${users.map(user => \`
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-user me-2 text-muted"></i>
+                                        \${user.name}
+                                    </td>
+                                    <td>
+                                        <i class="fas fa-envelope me-2 text-muted"></i>
+                                        \${user.email}
+                                    </td>
+                                    <td>
+                                        \${user.phone ? \`
+                                            <i class="fas fa-phone me-2 text-muted"></i>
+                                            \${user.phone}
+                                        \` : '<span class="text-muted">-</span>'}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-2" onclick="editUser(\${user.id})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(\${user.id}, '\${user.name}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            \`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            \`;
+
+            document.getElementById('usersList').innerHTML = usersListHtml;
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const userData = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                phone: formData.get('phone') || null
+            };
+
+            try {
+                const response = await axios.post(window.API_URL + '/users', userData);
+                
+                if (response.data.success) {
+                    showAlert('User added successfully!', 'success');
+                    this.reset();
+                    await loadUsers();
+                } else {
+                    showAlert('Error adding user: ' + response.data.error, 'danger');
+                }
+            } catch (error) {
+                console.error('Error adding user:', error);
+                if (error.response && error.response.data && error.response.data.error) {
+                    showAlert('Error: ' + error.response.data.error, 'danger');
+                } else {
+                    showAlert('Error adding user. Please try again.', 'danger');
+                }
+            }
+        });
+
+        async function editUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            const newName = prompt('Enter new name:', user.name);
+            if (!newName || newName === user.name) return;
+
+            try {
+                const response = await axios.put(window.API_URL + '/users/' + userId, {
+                    name: newName,
+                    email: user.email,
+                    phone: user.phone
+                });
+
+                if (response.data.success) {
+                    showAlert('User updated successfully!', 'success');
+                    await loadUsers();
+                } else {
+                    showAlert('Error updating user: ' + response.data.error, 'danger');
+                }
+            } catch (error) {
+                console.error('Error updating user:', error);
+                showAlert('Error updating user. Please try again.', 'danger');
+            }
+        }
+
+        async function deleteUser(userId, userName) {
+            if (!confirm(\`Are you sure you want to delete user "\${userName}"? This action cannot be undone.\`)) {
+                return;
+            }
+
+            try {
+                const response = await axios.delete(window.API_URL + '/users/' + userId);
+                
+                if (response.data.success) {
+                    showAlert('User deleted successfully!', 'success');
+                    await loadUsers();
+                } else {
+                    showAlert('Error deleting user: ' + response.data.error, 'danger');
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showAlert('Error deleting user. Please try again.', 'danger');
+            }
+        }
+    </script>
+    `;
+%>
+
+<%- include('../components/layout', { title, apiUrl, body }) %>

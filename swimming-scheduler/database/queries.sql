@@ -1,0 +1,129 @@
+-- Common SQL Queries for Swimming Scheduler
+
+-- 1. Get all users
+-- SELECT * FROM users ORDER BY name;
+
+-- 2. Create a new event with proposed dates
+-- First insert the event, then insert proposed dates
+
+-- 3. Get event details with proposed dates
+-- SELECT 
+--     e.id as event_id,
+--     e.title,
+--     e.description,
+--     e.location,
+--     e.status,
+--     u.name as created_by_name,
+--     epd.id as proposed_date_id,
+--     epd.proposed_date,
+--     epd.start_time,
+--     epd.end_time
+-- FROM events e
+-- JOIN users u ON e.created_by = u.id
+-- LEFT JOIN event_proposed_dates epd ON e.id = epd.event_id
+-- WHERE e.id = ?
+-- ORDER BY epd.proposed_date;
+
+-- 4. Get availability report for an event
+-- SELECT 
+--     epd.proposed_date,
+--     epd.start_time,
+--     epd.end_time,
+--     COUNT(ep.user_id) as total_invited,
+--     COUNT(CASE WHEN ua.is_available = 1 THEN 1 END) as available_count,
+--     GROUP_CONCAT(
+--         CASE WHEN ua.is_available = 1 
+--         THEN u.name 
+--         END SEPARATOR ', '
+--     ) as available_users,
+--     GROUP_CONCAT(
+--         CASE WHEN ua.is_available = 0 OR ua.is_available IS NULL 
+--         THEN u.name 
+--         END SEPARATOR ', '
+--     ) as unavailable_users
+-- FROM event_proposed_dates epd
+-- JOIN event_participants ep ON epd.event_id = ep.event_id
+-- JOIN users u ON ep.user_id = u.id
+-- LEFT JOIN user_availability ua ON epd.id = ua.proposed_date_id AND u.id = ua.user_id
+-- WHERE epd.event_id = ?
+-- GROUP BY epd.id, epd.proposed_date, epd.start_time, epd.end_time
+-- ORDER BY epd.proposed_date;
+
+-- 5. Get user's availability for a specific event
+-- SELECT 
+--     epd.id as proposed_date_id,
+--     epd.proposed_date,
+--     epd.start_time,
+--     epd.end_time,
+--     COALESCE(ua.is_available, FALSE) as is_available,
+--     ua.notes
+-- FROM event_proposed_dates epd
+-- LEFT JOIN user_availability ua ON epd.id = ua.proposed_date_id AND ua.user_id = ?
+-- WHERE epd.event_id = ?
+-- ORDER BY epd.proposed_date;
+
+-- 6. Update user availability
+-- INSERT INTO user_availability (user_id, event_id, proposed_date_id, is_available, notes)
+-- VALUES (?, ?, ?, ?, ?)
+-- ON DUPLICATE KEY UPDATE
+-- is_available = VALUES(is_available),
+-- notes = VALUES(notes),
+-- response_time = CURRENT_TIMESTAMP;
+
+-- 7. Get events for a user (as participant)
+-- SELECT 
+--     e.id,
+--     e.title,
+--     e.description,
+--     e.location,
+--     e.status,
+--     u.name as created_by,
+--     ep.invitation_status,
+--     COUNT(epd.id) as proposed_dates_count
+-- FROM events e
+-- JOIN users u ON e.created_by = u.id
+-- JOIN event_participants ep ON e.id = ep.event_id
+-- LEFT JOIN event_proposed_dates epd ON e.id = epd.event_id
+-- WHERE ep.user_id = ?
+-- GROUP BY e.id
+-- ORDER BY e.created_at DESC;
+
+-- 8. Get events created by a user
+-- SELECT 
+--     e.id,
+--     e.title,
+--     e.description,
+--     e.location,
+--     e.status,
+--     COUNT(DISTINCT ep.user_id) as participant_count,
+--     COUNT(DISTINCT epd.id) as proposed_dates_count
+-- FROM events e
+-- LEFT JOIN event_participants ep ON e.id = ep.event_id
+-- LEFT JOIN event_proposed_dates epd ON e.id = epd.event_id
+-- WHERE e.created_by = ?
+-- GROUP BY e.id
+-- ORDER BY e.created_at DESC;
+
+-- 9. Find best dates (most available participants)
+-- SELECT 
+--     epd.proposed_date,
+--     epd.start_time,
+--     epd.end_time,
+--     COUNT(ep.user_id) as total_invited,
+--     COUNT(CASE WHEN ua.is_available = 1 THEN 1 END) as available_count,
+--     ROUND(
+--         (COUNT(CASE WHEN ua.is_available = 1 THEN 1 END) * 100.0 / COUNT(ep.user_id)), 
+--         1
+--     ) as availability_percentage
+-- FROM event_proposed_dates epd
+-- JOIN event_participants ep ON epd.event_id = ep.event_id
+-- LEFT JOIN user_availability ua ON epd.id = ua.proposed_date_id AND ep.user_id = ua.user_id
+-- WHERE epd.event_id = ?
+-- GROUP BY epd.id
+-- ORDER BY available_count DESC, availability_percentage DESC;
+
+-- 10. Add participants to event
+-- INSERT INTO event_participants (event_id, user_id) VALUES (?, ?);
+
+-- 11. Remove participant from event
+-- DELETE FROM event_participants WHERE event_id = ? AND user_id = ?;
