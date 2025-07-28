@@ -1,0 +1,266 @@
+<% 
+    const body = `
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-plus me-2"></i>Create New Swimming Event
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="createEventForm">
+                        <!-- Event Details -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="title" class="form-label">Event Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" required 
+                                       placeholder="e.g., Weekend Pool Session">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="location" class="form-label">Location</label>
+                                <input type="text" class="form-control" id="location" name="location" 
+                                       placeholder="e.g., Community Pool">
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="createdBy" class="form-label">Created By *</label>
+                                <select class="form-control" id="createdBy" name="createdBy" required>
+                                    <option value="">Select user...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" name="description" rows="3" 
+                                          placeholder="Event description..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Proposed Dates -->
+                        <h5 class="mb-3">
+                            <i class="fas fa-calendar-alt me-2"></i>Proposed Dates
+                        </h5>
+                        <div id="proposedDates">
+                            <div class="proposed-date-row mb-3">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Date *</label>
+                                        <input type="date" class="form-control" name="proposedDate" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Start Time</label>
+                                        <input type="time" class="form-control" name="startTime">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">End Time</label>
+                                        <input type="time" class="form-control" name="endTime">
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button type="button" class="btn btn-outline-danger w-100" onclick="removeDateRow(this)" disabled>
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-outline-primary mb-4" onclick="addDateRow()">
+                            <i class="fas fa-plus me-2"></i>Add Another Date
+                        </button>
+
+                        <!-- Participants -->
+                        <h5 class="mb-3">
+                            <i class="fas fa-users me-2"></i>Invite Participants
+                        </h5>
+                        <div class="row">
+                            <div class="col-12">
+                                <div id="usersList" class="row">
+                                    <!-- Users will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    <i class="fas fa-check me-2"></i>Create Event
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let users = [];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadUsers();
+            
+            // Set minimum date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelector('input[name="proposedDate"]').min = today;
+        });
+
+        async function loadUsers() {
+            try {
+                const response = await axios.get(window.API_URL + '/users');
+                if (response.data.success) {
+                    users = response.data.data;
+                    populateUserSelects();
+                    populateUserCheckboxes();
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                showAlert('Error loading users. Please check if the backend is running.', 'warning');
+            }
+        }
+
+        function populateUserSelects() {
+            const createdBySelect = document.getElementById('createdBy');
+            createdBySelect.innerHTML = '<option value="">Select user...</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.name;
+                createdBySelect.appendChild(option);
+            });
+        }
+
+        function populateUserCheckboxes() {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = '';
+            
+            users.forEach(user => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4 mb-2';
+                col.innerHTML = \`
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="\${user.id}" id="user_\${user.id}" name="participants">
+                        <label class="form-check-label" for="user_\${user.id}">
+                            \${user.name}
+                        </label>
+                    </div>
+                \`;
+                usersList.appendChild(col);
+            });
+        }
+
+        function addDateRow() {
+            const proposedDates = document.getElementById('proposedDates');
+            const dateRow = document.createElement('div');
+            dateRow.className = 'proposed-date-row mb-3';
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            dateRow.innerHTML = \`
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Date *</label>
+                        <input type="date" class="form-control" name="proposedDate" min="\${today}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Start Time</label>
+                        <input type="time" class="form-control" name="startTime">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End Time</label>
+                        <input type="time" class="form-control" name="endTime">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-danger w-100" onclick="removeDateRow(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            \`;
+            
+            proposedDates.appendChild(dateRow);
+            updateRemoveButtons();
+        }
+
+        function removeDateRow(button) {
+            button.closest('.proposed-date-row').remove();
+            updateRemoveButtons();
+        }
+
+        function updateRemoveButtons() {
+            const dateRows = document.querySelectorAll('.proposed-date-row');
+            dateRows.forEach((row, index) => {
+                const removeButton = row.querySelector('button');
+                removeButton.disabled = dateRows.length === 1;
+            });
+        }
+
+        document.getElementById('createEventForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            try {
+                const formData = new FormData(this);
+                
+                // Get basic event data
+                const eventData = {
+                    title: formData.get('title'),
+                    description: formData.get('description') || '',
+                    location: formData.get('location') || '',
+                    created_by: parseInt(formData.get('createdBy'))
+                };
+
+                // Get proposed dates
+                const dateInputs = document.querySelectorAll('input[name="proposedDate"]');
+                const startTimeInputs = document.querySelectorAll('input[name="startTime"]');
+                const endTimeInputs = document.querySelectorAll('input[name="endTime"]');
+                
+                eventData.proposed_dates = [];
+                for (let i = 0; i < dateInputs.length; i++) {
+                    if (dateInputs[i].value) {
+                        eventData.proposed_dates.push({
+                            date: dateInputs[i].value,
+                            start_time: startTimeInputs[i].value || null,
+                            end_time: endTimeInputs[i].value || null
+                        });
+                    }
+                }
+
+                // Get selected participants
+                const participantCheckboxes = document.querySelectorAll('input[name="participants"]:checked');
+                eventData.participant_ids = Array.from(participantCheckboxes).map(cb => parseInt(cb.value));
+
+                // Validation
+                if (eventData.proposed_dates.length === 0) {
+                    showAlert('Please add at least one proposed date.', 'warning');
+                    return;
+                }
+
+                if (eventData.participant_ids.length === 0) {
+                    showAlert('Please select at least one participant.', 'warning');
+                    return;
+                }
+
+                // Submit the event
+                const response = await axios.post(window.API_URL + '/events', eventData);
+                
+                if (response.data.success) {
+                    showAlert('Event created successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/event/' + response.data.data.id;
+                    }, 1500);
+                } else {
+                    showAlert('Error creating event: ' + response.data.error, 'danger');
+                }
+            } catch (error) {
+                console.error('Error creating event:', error);
+                showAlert('Error creating event. Please try again.', 'danger');
+            }
+        });
+    </script>
+    `;
+%>
+
+<%- include('../components/layout', { title, apiUrl, body }) %>

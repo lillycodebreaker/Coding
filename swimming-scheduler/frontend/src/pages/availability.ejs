@@ -1,0 +1,201 @@
+<% 
+    const body = `
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-calendar-check me-2"></i>Set Your Availability
+                    </h3>
+                    <p class="text-muted mb-0 mt-2" id="eventTitle">Loading event details...</p>
+                </div>
+                <div class="card-body">
+                    <div id="availabilityForm">
+                        <!-- Availability form will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const eventId = <%= eventId %>;
+        const userId = <%= userId %>;
+        let currentEvent = null;
+        let userAvailability = [];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadEventDetails();
+            await loadUserAvailability();
+            renderAvailabilityForm();
+        });
+
+        async function loadEventDetails() {
+            try {
+                const response = await axios.get(window.API_URL + '/events/' + eventId);
+                if (response.data.success) {
+                    currentEvent = response.data.data;
+                    document.getElementById('eventTitle').textContent = \`Event: \${currentEvent.title}\`;
+                } else {
+                    showAlert('Event not found.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error loading event details:', error);
+                showAlert('Error loading event details.', 'danger');
+            }
+        }
+
+        async function loadUserAvailability() {
+            try {
+                const response = await axios.get(window.API_URL + '/events/' + eventId + '/users/' + userId + '/availability');
+                if (response.data.success) {
+                    userAvailability = response.data.data;
+                }
+            } catch (error) {
+                console.error('Error loading user availability:', error);
+                showAlert('Error loading current availability.', 'warning');
+            }
+        }
+
+        function renderAvailabilityForm() {
+            if (!currentEvent || !userAvailability) {
+                return;
+            }
+
+            const formHtml = \`
+                <form id="availabilityFormElement">
+                    <p class="mb-4">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        Please select your availability for each proposed date. Your responses will help determine the best time for everyone.
+                    </p>
+                    
+                    \${userAvailability.map((dateAvailability, index) => \`
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        <h6 class="card-title mb-1">\${formatDate(dateAvailability.date)}</h6>
+                                        \${dateAvailability.start_time || dateAvailability.end_time ? \`
+                                            <p class="text-muted small mb-0">
+                                                \${dateAvailability.start_time ? formatTime(dateAvailability.start_time) : ''} 
+                                                \${dateAvailability.start_time && dateAvailability.end_time ? ' - ' : ''}
+                                                \${dateAvailability.end_time ? formatTime(dateAvailability.end_time) : ''}
+                                            </p>
+                                        \` : ''}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="btn-group w-100" role="group">
+                                            <input type="radio" class="btn-check" name="availability_\${dateAvailability.proposed_date_id}" 
+                                                   id="available_\${dateAvailability.proposed_date_id}" value="true" 
+                                                   \${dateAvailability.is_available ? 'checked' : ''}>
+                                            <label class="btn btn-outline-success" for="available_\${dateAvailability.proposed_date_id}">
+                                                <i class="fas fa-check me-1"></i>Available
+                                            </label>
+
+                                            <input type="radio" class="btn-check" name="availability_\${dateAvailability.proposed_date_id}" 
+                                                   id="unavailable_\${dateAvailability.proposed_date_id}" value="false" 
+                                                   \${!dateAvailability.is_available ? 'checked' : ''}>
+                                            <label class="btn btn-outline-danger" for="unavailable_\${dateAvailability.proposed_date_id}">
+                                                <i class="fas fa-times me-1"></i>Not Available
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label for="notes_\${dateAvailability.proposed_date_id}" class="form-label">Notes (optional)</label>
+                                    <textarea class="form-control" id="notes_\${dateAvailability.proposed_date_id}" 
+                                              name="notes_\${dateAvailability.proposed_date_id}" rows="2" 
+                                              placeholder="Any additional comments..."
+                                              >\${dateAvailability.notes || ''}</textarea>
+                                </div>
+                                
+                                <input type="hidden" name="proposed_date_id_\${index}" value="\${dateAvailability.proposed_date_id}">
+                            </div>
+                        </div>
+                    \`).join('')}
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-outline-secondary w-100" onclick="goBackToEvent()">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Event
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-save me-2"></i>Save Availability
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            \`;
+
+            document.getElementById('availabilityForm').innerHTML = formHtml;
+
+            // Add form submit handler
+            document.getElementById('availabilityFormElement').addEventListener('submit', handleFormSubmit);
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const submitButton = document.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+            submitButton.disabled = true;
+
+            try {
+                const formData = new FormData(e.target);
+                const updates = [];
+
+                // Process each proposed date
+                userAvailability.forEach((dateAvailability, index) => {
+                    const proposedDateId = parseInt(formData.get(\`proposed_date_id_\${index}\`));
+                    const availability = formData.get(\`availability_\${proposedDateId}\`) === 'true';
+                    const notes = formData.get(\`notes_\${proposedDateId}\`) || '';
+
+                    updates.push({
+                        proposed_date_id: proposedDateId,
+                        is_available: availability,
+                        notes: notes
+                    });
+                });
+
+                // Submit each update
+                for (const update of updates) {
+                    const response = await axios.post(window.API_URL + '/events/' + eventId + '/availability', {
+                        user_id: userId,
+                        proposed_date_id: update.proposed_date_id,
+                        is_available: update.is_available,
+                        notes: update.notes
+                    });
+
+                    if (!response.data.success) {
+                        throw new Error('Failed to update availability');
+                    }
+                }
+
+                showAlert('Availability saved successfully!', 'success');
+                
+                // Redirect back to event after a short delay
+                setTimeout(() => {
+                    window.location.href = '/event/' + eventId;
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error saving availability:', error);
+                showAlert('Error saving availability. Please try again.', 'danger');
+                
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            }
+        }
+
+        function goBackToEvent() {
+            window.location.href = '/event/' + eventId;
+        }
+    </script>
+    `;
+%>
+
+<%- include('../components/layout', { title, apiUrl, body }) %>
