@@ -1,0 +1,143 @@
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  
+  <!-- Title -->
+  <text x="600" y="30" text-anchor="middle" font-size="24" font-weight="bold" fill="#1f2937">RAG Document Extraction System Architecture</text>
+  
+  <!-- Frontend Layer -->
+  <g id="frontend">
+    <rect x="50" y="80" width="300" height="200" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+    <text x="200" y="105" text-anchor="middle" font-size="16" font-weight="bold" fill="#1e40af">Frontend Layer</text>
+    
+    <!-- React Components -->
+    <rect x="70" y="120" width="260" height="40" rx="5" fill="#eff6ff" stroke="#60a5fa"/>
+    <text x="200" y="145" text-anchor="middle" font-size="12" fill="#1e40af">React.js UI Components</text>
+    
+    <rect x="70" y="170" width="120" height="30" rx="3" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="130" y="190" text-anchor="middle" font-size="10" fill="#92400e">File Upload</text>
+    
+    <rect x="210" y="170" width="120" height="30" rx="3" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="270" y="190" text-anchor="middle" font-size="10" fill="#92400e">Results Display</text>
+    
+    <rect x="70" y="210" width="260" height="30" rx="3" fill="#dcfce7" stroke="#22c55e"/>
+    <text x="200" y="230" text-anchor="middle" font-size="10" fill="#15803d">Document Management</text>
+  </g>
+  
+  <!-- API Gateway/Load Balancer -->
+  <g id="gateway">
+    <rect x="450" y="130" width="150" height="60" rx="8" fill="#f3e8ff" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="525" y="150" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c3aed">API Gateway</text>
+    <text x="525" y="170" text-anchor="middle" font-size="10" fill="#7c3aed">Load Balancer</text>
+  </g>
+  
+  <!-- Backend Services -->
+  <g id="backend">
+    <rect x="700" y="80" width="450" height="280" rx="10" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+    <text x="925" y="105" text-anchor="middle" font-size="16" font-weight="bold" fill="#dc2626">Python Backend Services</text>
+    
+    <!-- Document Processing Service -->
+    <rect x="720" y="120" width="180" height="80" rx="5" fill="#fff7ed" stroke="#f97316"/>
+    <text x="810" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#ea580c">Document Processing</text>
+    <text x="810" y="155" text-anchor="middle" font-size="10" fill="#ea580c">• PDF Parser</text>
+    <text x="810" y="170" text-anchor="middle" font-size="10" fill="#ea580c">• SQL Parser</text>
+    <text x="810" y="185" text-anchor="middle" font-size="10" fill="#ea580c">• Text Chunking</text>
+    
+    <!-- RAG Service -->
+    <rect x="920" y="120" width="180" height="80" rx="5" fill="#f0f9ff" stroke="#0ea5e9"/>
+    <text x="1010" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#0284c7">RAG Engine</text>
+    <text x="1010" y="155" text-anchor="middle" font-size="10" fill="#0284c7">• Vector Embeddings</text>
+    <text x="1010" y="170" text-anchor="middle" font-size="10" fill="#0284c7">• Similarity Search</text>
+    <text x="1010" y="185" text-anchor="middle" font-size="10" fill="#0284c7">• Context Retrieval</text>
+    
+    <!-- Rule Extraction Service -->
+    <rect x="720" y="220" width="180" height="80" rx="5" fill="#f0fdf4" stroke="#22c55e"/>
+    <text x="810" y="240" text-anchor="middle" font-size="12" font-weight="bold" fill="#16a34a">Rule Extraction</text>
+    <text x="810" y="255" text-anchor="middle" font-size="10" fill="#16a34a">• LLM Integration</text>
+    <text x="810" y="270" text-anchor="middle" font-size="10" fill="#16a34a">• Prompt Templates</text>
+    <text x="810" y="285" text-anchor="middle" font-size="10" fill="#16a34a">• JSON Formatting</text>
+    
+    <!-- API Orchestration -->
+    <rect x="920" y="220" width="180" height="80" rx="5" fill="#faf5ff" stroke="#a855f7"/>
+    <text x="1010" y="240" text-anchor="middle" font-size="12" font-weight="bold" fill="#9333ea">API Orchestration</text>
+    <text x="1010" y="255" text-anchor="middle" font-size="10" fill="#9333ea">• FastAPI/Flask</text>
+    <text x="1010" y="270" text-anchor="middle" font-size="10" fill="#9333ea">• Request Routing</text>
+    <text x="1010" y="285" text-anchor="middle" font-size="10" fill="#9333ea">• Response Handling</text>
+  </g>
+  
+  <!-- Storage Layer -->
+  <g id="storage">
+    <rect x="50" y="420" width="1100" height="150" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+    <text x="600" y="445" text-anchor="middle" font-size="16" font-weight="bold" fill="#475569">Storage Layer</text>
+    
+    <!-- BigQuery -->
+    <rect x="100" y="470" width="200" height="70" rx="5" fill="#e0f2fe" stroke="#0891b2"/>
+    <text x="200" y="490" text-anchor="middle" font-size="12" font-weight="bold" fill="#0e7490">Google BigQuery</text>
+    <text x="200" y="505" text-anchor="middle" font-size="10" fill="#0e7490">• Extracted Rules</text>
+    <text x="200" y="520" text-anchor="middle" font-size="10" fill="#0e7490">• Document Metadata</text>
+    
+    <!-- Vector Database -->
+    <rect x="350" y="470" width="200" height="70" rx="5" fill="#fef7cd" stroke="#eab308"/>
+    <text x="450" y="490" text-anchor="middle" font-size="12" font-weight="bold" fill="#a16207">Vector Database</text>
+    <text x="450" y="505" text-anchor="middle" font-size="10" fill="#a16207">• Document Embeddings</text>
+    <text x="450" y="520" text-anchor="middle" font-size="10" fill="#a16207">• Semantic Index</text>
+    
+    <!-- File Storage -->
+    <rect x="600" y="470" width="200" height="70" rx="5" fill="#f3e8ff" stroke="#8b5cf6"/>
+    <text x="700" y="490" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c3aed">Cloud Storage</text>
+    <text x="700" y="505" text-anchor="middle" font-size="10" fill="#7c3aed">• Original Documents</text>
+    <text x="700" y="520" text-anchor="middle" font-size="10" fill="#7c3aed">• Processed Files</text>
+    
+    <!-- Cache -->
+    <rect x="850" y="470" width="200" height="70" rx="5" fill="#fecaca" stroke="#ef4444"/>
+    <text x="950" y="490" text-anchor="middle" font-size="12" font-weight="bold" fill="#dc2626">Redis Cache</text>
+    <text x="950" y="505" text-anchor="middle" font-size="10" fill="#dc2626">• API Responses</text>
+    <text x="950" y="520" text-anchor="middle" font-size="10" fill="#dc2626">• Session Data</text>
+  </g>
+  
+  <!-- External Services -->
+  <g id="external">
+    <rect x="50" y="620" width="1100" height="120" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="2"/>
+    <text x="600" y="645" text-anchor="middle" font-size="16" font-weight="bold" fill="#a16207">External Services</text>
+    
+    <rect x="150" y="670" width="150" height="40" rx="5" fill="#ddd6fe" stroke="#8b5cf6"/>
+    <text x="225" y="695" text-anchor="middle" font-size="12" fill="#7c3aed">OpenAI/LLM API</text>
+    
+    <rect x="350" y="670" width="150" height="40" rx="5" fill="#dcfce7" stroke="#22c55e"/>
+    <text x="425" y="695" text-anchor="middle" font-size="12" fill="#16a34a">Authentication</text>
+    
+    <rect x="550" y="670" width="150" height="40" rx="5" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="625" y="695" text-anchor="middle" font-size="12" fill="#92400e">Monitoring</text>
+    
+    <rect x="750" y="670" width="150" height="40" rx="5" fill="#fecaca" stroke="#ef4444"/>
+    <text x="825" y="695" text-anchor="middle" font-size="12" fill="#dc2626">Logging</text>
+  </g>
+  
+  <!-- Data Flow Arrows -->
+  <!-- Frontend to Gateway -->
+  <path d="M 350 180 L 450 165" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Gateway to Backend -->
+  <path d="M 600 160 L 700 160" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Backend to Storage -->
+  <path d="M 925 360 L 925 420" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Backend to External -->
+  <path d="M 925 360 L 925 600 L 225 600 L 225 670" stroke="#6b7280" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+    </marker>
+  </defs>
+  
+  <!-- Process Flow Labels -->
+  <text x="200" y="320" text-anchor="middle" font-size="14" font-weight="bold" fill="#1f2937">Process Flow:</text>
+  <text x="200" y="340" text-anchor="start" font-size="11" fill="#374151">1. Upload BRD PDF + SQL file</text>
+  <text x="200" y="355" text-anchor="start" font-size="11" fill="#374151">2. Parse & chunk documents</text>
+  <text x="200" y="370" text-anchor="start" font-size="11" fill="#374151">3. Generate embeddings</text>
+  <text x="200" y="385" text-anchor="start" font-size="11" fill="#374151">4. Apply extraction prompts</text>
+  <text x="200" y="400" text-anchor="start" font-size="11" fill="#374151">5. Return structured JSON</text>
+</svg>
