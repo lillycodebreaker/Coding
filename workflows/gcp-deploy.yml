@@ -1,0 +1,130 @@
+# Name of the Workflow
+name: GCP Deploy Pipeline
+
+on:
+  workflow_call:
+    secrets:
+      cicd-user:
+        description: 'cicd user'
+        required: true
+      cicd-token:
+        description: 'token'
+        required: true
+    inputs:
+      docker-repo:
+        description: 'source host address'
+        required: true
+        type: string
+      image-name:
+        description: 'name of source image'
+        required: true
+        type: string
+      image-tag:
+        description: 'tag of source image'
+        required: true
+        type: string
+      gcr-image-name:
+        description: 'GCR image name'
+        required: true
+        type: string
+      gcr-repo:
+        description: 'GCR repo location'
+        required: true
+        type: string
+      gcp-project-id:
+        description: 'GCR project id'
+        required: true
+        type: string
+      gcr-image-tag:
+        description: 'GCR image name'
+        required: true
+        type: string
+      gke-cluster:
+        description: 'GKE cluster name'
+        required: true
+        type: string
+      gke-zone: 
+        description: 'GKE zone'
+        required: true
+        type: string
+      gke-namespace: 
+        description: 'GKE namespace'
+        required: true
+        type: string
+      deployment-name:
+        description: 'GKE deployment name'
+        required: true
+        type: string
+      gcp-service-account-email:
+        description: 'service account email'
+        required: true
+        type: string
+      deployment-yml-location:
+        description: 'deployment yaml for deploying on GKE cluster'
+        required: true
+        type: string
+      gcp-workload-identity-provider:
+        description: 'workload identity provider'
+        required: true
+        type: string
+      
+jobs:
+  deploy-to-gcp:
+    #runs-on: uhg-runner
+    runs-on: runnerstage
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.docker-repo }}
+          username: ${{ secrets.cicd-user }}
+          password: ${{ secrets.cicd-token }}
+
+      - name: Pull Docker image
+        shell: bash
+        run: |
+          docker pull ${{ inputs.docker-repo }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.gcp-workload-identity-provider }}
+          service_account: ${{ inputs.gcp-service-account-email }}
+          create_credentials_file: true
+
+      - name: Setup GCP SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker ${{ inputs.gcr-repo }}
+
+      - name: Tag and Push image to GCR
+        run: |
+          docker tag ${{ inputs.docker-repo }}/${{ inputs.image-name }}:${{ inputs.image-tag }} ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${{ inputs.gcr-image-tag }}
+          docker push ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${{ inputs.gcr-image-tag }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ inputs.gke-cluster }}
+          location: ${{ inputs.gke-zone }}
+          use_dns_based_endpoint: true
+
+      - name: Update deployment image
+        run: |
+          # Update the image in the deployment.yaml file
+          sed -i "s|image:.*|image: ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${{ inputs.gcr-image-tag }}|" ${{ inputs.deployment-yml-location }}
+          
+          # Optional: Print the modified deployment file for verification
+          cat ${{ inputs.deployment-yml-location }}
+      - name: Deploy to GKE
+        run: |
+          GODEBUG=tlskyber=0 kubectl config set-context --current --namespace=${{ inputs.gke-namespace }}
+          GODEBUG=tlskyber=0 kubectl cluster-info
+          GODEBUG=tlskyber=0 kubectl apply -f \${{ inputs.deployment-yml-location }}
+          GODEBUG=tlskyber=0 kubectl rollout restart deployment/${{ inputs.deployment-name }}
+          GODEBUG=tlskyber=0 kubectl rollout status deployment/${{ inputs.deployment-name }}

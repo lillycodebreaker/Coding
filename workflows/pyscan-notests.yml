@@ -1,0 +1,263 @@
+name: "Python scan"
+description: "Runs and generate a code coverage and test report with pytest"
+
+inputs:
+
+  #Jfrog SaaS Parameters
+  jfrog-central-server-name:
+    description: 'The name of the central server to configure'
+    required: false
+    default: 'jfrog-central'
+  jfrog-edge-server-name:
+    description: 'The name of the edge server to configure'
+    required: false
+    default: 'jfrog-core-edge'
+  jfrog-build-name:
+    required: false
+    description: The name of the build to be used in Artifactory - if not set, will use the repository and workflow name
+    default: ''
+    type: string
+  jfrog-build-number:
+    required: false
+    description: The number of the build to be used in Artifactory - if not set, will use the build and run number
+    default: ''
+    type: string
+  jfrog-project-key:
+    required: false
+    description: The Artifactory project key if you are leveraging the JFrog SaaS
+
+  #SonarQube Parameters
+  enable-sonar:
+    description: "Determines if Sonar will be ran"
+    required: false
+    default: "true"
+    type: string
+  sonar-skip-buildbreaker:
+    description: "The Sonar build to fail due to threshold metrics"
+    required: false
+    default: "true"
+  sonar-quality-gate-wait:
+    description: "Whether to wait for Sonar pass/fail scan to finish before returning results"
+    required: false
+    default: "true"
+  sonar-url:
+    description: URL of the SonarQube server
+    default: https://sonar.optum.com
+    type: string
+  sonar-token:
+    description: "The Sonar token"
+    required: false
+    type: string
+    default: "092c919905283a6d35ff1abe2128fc52e48a6156"
+  sonar-project-key:
+    description: "The project key for the sonarqube scan"
+    required: false
+    default: ''
+
+  #Python Parameters
+  source-dir:
+    description: "The source directory where the code is located."
+    required: false
+  test-dir:
+    description: "The directory containing the test code can be executed using pytest."
+    required: false
+  python-pytest-command:
+    description: "Used to override the parameters for the call to pytest that tests your project"
+    required: false
+    default: "--cov-report=xml:reports/coverage.xml --cov-report term-missing --junitxml=./reports/junit.xml"
+  python-pytest-path:
+    description: "Used to override the PYTHONPATH when pytest is executed. Users should specify the full path they want included when setting this."
+    required: false
+    default: "${PYTHONPATH}"
+  build-tool:
+    type: choice
+    description: "Python Build Tool (pip/poetry)"
+    required: false
+    default: ""
+    options:
+    - pip
+    - poetry
+  requirements-file:
+    description: "Ability to override the default filename of the Python scan dependencies. Default filename: requirements.txt"
+    required: false
+    type: string
+    default: "requirements.txt"
+  artifact-upload:
+    description: "Determines if the package will be uploaded to JFrog SaaS"
+    required: false
+    default: false
+    type: boolean
+  artifact-upload-repository:
+    description: "The repository to upload the artifact to"
+    required: false
+    type: string
+    default: ""
+  artifact-upload-basedir:
+    description: "The base directory to upload the artifact within the repository"
+    required: false
+    type: string
+    default: ""
+  working-directory:
+    description: 'The working directory for the action'
+    required: false
+    default: '.'
+
+outputs:
+  artifact-name:
+    description: "The name of the artifact that was built"
+    value: ${{ steps.build.outputs.artifact-name }}
+  artifact-version:
+    description: "The version of the artifact that was built"
+    value: ${{ steps.build.outputs.artifact-version }}
+
+runs:
+  using: "composite"
+  steps:
+  - name: Detect Build Tool
+    working-directory: ${{ inputs.working-directory }}
+    shell: bash
+    id: build-tool
+    run: |
+      if [[ "${{ inputs.build-tool }}" != "" ]]; then
+        echo "tool=${{ inputs.build-tool }}" >> $GITHUB_OUTPUT
+      elif [ -f "pyproject.toml" ] && [ -f "${{ inputs.requirements-file }}" ]; then
+        echo "::error:: Error: Both pyproject.toml and ${{ inputs.requirements-file }} found in root directory. Please remove any one or specify build-tool manually in inputs."
+        exit 1
+      elif [ -f "pyproject.toml" ]; then
+        echo "Poetry detected."
+        echo "tool=poetry" >> $GITHUB_OUTPUT
+      elif [ -f "${{ inputs.requirements-file }}" ]; then
+        echo "Pip detected."
+        echo "tool=pip" >> $GITHUB_OUTPUT
+      else
+        echo "::error:: Error: ${{ inputs.requirements-file }} or pyproject.toml not found in root directory." && exit 1
+      fi
+
+  # JFrog SaaS specific
+  - name: JF config, audit and install dependencies
+    if: ${{ inputs.jfrog-project-key != '' }}
+    working-directory: ${{ inputs.working-directory }}
+    shell: bash
+    run: |
+      # pip config to support JFrog SaaS
+      jf pip-config \
+        --server-id-resolve ${{ inputs.jfrog-edge-server-name }} \
+        --server-id-deploy ${{ inputs.jfrog-central-server-name }} \
+        --repo-resolve ${{ inputs.jfrog-project-key }}-pypi-vir \
+        --repo-deploy ${{ inputs.jfrog-project-key }}-pypi-np-loc
+
+      jf config show
+      jf config use ${{ inputs.jfrog-edge-server-name }}
+      jf rt ping
+      jf config use ${{ inputs.jfrog-central-server-name }}
+      jf rt ping
+
+      if [[ "${{ steps.build-tool.outputs.tool }}" == "poetry" ]]; then
+        echo "============Installing dependencies using poetry============="
+
+        jf poetry-config \
+          --repo-resolve ${{ inputs.jfrog-project-key }}-pypi-vir \
+          --server-id-resolve ${{ inputs.jfrog-edge-server-name }}  
+
+        jf config show
+        jf config use ${{ inputs.jfrog-edge-server-name }}
+        jf rt ping
+        jf config use ${{ inputs.jfrog-central-server-name }}
+        jf rt ping
+        jf audit --poetry --extended-table=true --format=simple-json --project="${{ inputs.jfrog-project-key }}"
+        jf poetry install --project="${{ inputs.jfrog-project-key }}" --build-name="${{ inputs.jfrog-build-name }}" --build-number="${{ inputs.jfrog-build-number }}"
+
+      else
+        echo "=========Installing dependencies using pip==============="
+
+        jf audit --pip --extended-table=true --format=simple-json --project="${{ inputs.jfrog-project-key }}"
+        python3 -m venv .venv
+        . .venv/bin/activate
+        python3 -m pip install --upgrade pip
+        jf pip install -r ${{ inputs.requirements-file }} --project="${{ inputs.jfrog-project-key }}" --build-name="${{ inputs.jfrog-build-name }}" --build-number="${{ inputs.jfrog-build-number }}"
+      fi
+
+  # Repo1 specific
+  - name: Install project dependencies
+    if: ${{ inputs.jfrog-project-key == '' }}
+    working-directory: ${{ inputs.working-directory }}
+    shell: bash
+    run: |
+      if [[ "${{ steps.build-tool.outputs.tool }}" == "poetry" ]]
+      then
+        echo "Installing dependencies using poetry."
+        poetry install 
+      else
+        echo "Installing dependencies using pip.  ${{ inputs.requirements-file }}"
+        python3 -m venv .venv
+        .venv/bin/python -m pip install --upgrade pip
+        .venv/bin/pip install -r ${{ inputs.requirements-file }}
+      fi
+
+  - name: Build python project
+    id: build
+    working-directory: ${{ inputs.working-directory }}
+    shell: bash
+    run: |
+      
+      if [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+        echo "Setup.py or pyproject.toml found. Running build step."
+
+        # Install build dependencies
+        python3 -m pip install --upgrade build 
+
+        if [[ "${{ steps.build-tool.outputs.tool }}" == "poetry" ]]
+        then
+          echo "Building project using poetry."
+          poetry build
+        else
+          echo "Building project using pip."
+          python3 -m build
+        fi
+
+        # After the build, check the dist folder for the built artifact name and version
+        if [ ! -d dist ]; then
+          echo "::warning:: No distribution files found in dist folder.  Cannot determine artifact name and version."
+        else
+          # Extract artifact name and version from a distrubtion file, either a wheel or a tarball, both should be the same
+          for dist_file in dist/*; do
+              # Extract the name and version from the artifact file
+              if [[ $dist_file == *.whl ]]; then
+                name_version=$(basename $dist_file | sed -n 's/\(.*\)-\([0-9]*\.[0-9]*\.[0-9]*\).*/\1 \2/p')
+                break
+              elif [[ $artifact == *.tar.gz ]]; then
+                name_version=$(basename $dist_file | sed -n 's/\(.*\)-\([0-9]*\.[0-9]*\.[0-9]*\)\.tar\.gz/\1 \2/p')
+                break
+              else
+                echo "::warning:: Unknown artifact format or not files found in dist."
+              fi
+          done
+
+          # Split the name and version into separate variables
+          name=$(echo $name_version | awk '{print $1}')
+          version=$(echo $name_version | awk '{print $2}')
+
+          # Output the results
+          echo "Artifact Name: $name"
+          echo "artifact-name=$name" >> $GITHUB_OUTPUT
+          echo "Artifact Version: $version"
+          echo "artifact-version=$version" >> $GITHUB_OUTPUT
+        fi
+      else
+        echo "No setup.py or pyproject.toml found. Skipping build step."
+      fi
+  - name: Publish python package to JFrog SaaS
+    if: ${{ inputs.artifact-upload == 'true' && inputs.jfrog-project-key != '' }}
+    working-directory: ${{ inputs.working-directory }}
+    shell: bash
+    run: |
+      echo "::group::Publishing python package to JFrog SaaS"
+      #JFrog SaaS configuration
+      jf config use ${{ inputs.jfrog-central-server-name }}
+      jf rt ping
+
+      
+      pushd dist
+      jf rt upload "*" "${{ inputs.artifact-upload-repository }}/${{ inputs.artifact-upload-basedir }}/${{ steps.build.outputs.artifact-name }}/${{ steps.build.outputs.artifact-version }}/" --build-name="${{ inputs.jfrog-build-name }}" --build-number="${{ inputs.jfrog-build-number }}" --project="${{ inputs.jfrog-project-key }}"
+      popd
+      echo "::endgroup::"

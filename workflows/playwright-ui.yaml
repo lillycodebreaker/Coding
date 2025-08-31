@@ -1,0 +1,69 @@
+name: Playwright UI Tests
+on:
+  push:
+    branches: [ Playwright ]
+  pull_request:
+    branches: [ Playwright ]
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: uhg-runner
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+
+      - name: Setup npm registry
+        run: npm config set registry https://repo1.uhc.com/artifactory/api/npm/npm-virtual/
+
+      - name: Setup npm auth
+        run: npm config set always-auth false
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python and playwright dependencies
+        run: |
+          python -m pip install --upgrade pip
+          npm install @playwright/test
+
+      - name: Install Playwright Browsers
+        run: |
+          sudo apt-get clean
+          sudo apt-get update
+          sudo curl -O https://repo1.uhc.com/artifactory/dl-google/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+          npx playwright install
+
+      - name: Load environment variables
+        run: |
+          
+          echo 'USERNAME=${{ secrets.NON_USER_USERNAME }}' >> $GITHUB_ENV  
+          echo 'PASSWORD=${{ secrets.NON_USER_PW }}' >> $GITHUB_ENV  
+
+      - name: Run Playwright tests
+        run: npx playwright test playwright/ui/opera_ai_test.spec.js
+        env: 
+          USERNAME: ${{ secrets.NON_USER_USERNAME }}  
+          PASSWORD: ${{ secrets.NON_USER_PW }}  
+
+      - name: Upload Artifacts  
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-ui-report
+          path: playwright-ui-report/   
+          retention-days: 30
+        env: 
+          USERNAME: ${{ secrets.NON_USER_USERNAME }}  
+          PASSWORD: ${{ secrets.NON_USER_PW }}  
+                    
+      

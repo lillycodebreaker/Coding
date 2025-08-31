@@ -1,0 +1,119 @@
+# Name of the Workflow
+name: AWS Deploy Pipeline
+
+on:
+  workflow_call:
+    secrets:
+      cicd-user:
+        description: 'cicd user'
+        required: true
+      cicd-token:
+        description: 'token'
+        required: true
+    inputs:
+      docker-repo:
+        description: 'source host address'
+        required: true
+        type: string
+      image-name:
+        description: 'name of source image'
+        required: true
+        type: string
+      image-tag:
+        description: 'tag of source image'
+        required: true
+        type: string
+      ecr-image-name:
+        description: 'ECR image name'
+        required: true
+        type: string
+      ecr-repo:
+        description: 'ECR repo location'
+        required: true
+        type: string
+      aws-project-id:
+        description: 'ECR project id'
+        required: true
+        type: string
+      ecr-image-tag:
+        description: 'ECR image name'
+        required: true
+        type: string
+      eks-cluster:
+        description: 'EKS cluster name'
+        required: true
+        type: string
+      deployment-name:
+        description: 'EKS deployment name'
+        required: true
+        type: string
+      deployment-yml-location:
+        description: 'deployment yaml for deploying on EKS cluster'
+        required: true
+        type: string
+      aws-region:
+        description: "AWS region to deploy to"
+        required: true
+        type: string
+      eks-cluster-name:
+        description: "Name of the AWS EKS cluster to deploy to"
+        required: true
+        type: string
+      eks-namespace:
+        description: "Namespace within the AWS EKS cluster to deploy to"
+        required: true
+        type: string
+      
+jobs:
+  deploy-to-aws:
+    runs-on: uhg-runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.docker-repo }}
+          username: ${{ secrets.cicd-user }}
+          password: ${{ secrets.cicd-token }}
+
+      - name: Pull Docker image
+        shell: bash
+        run: |
+          docker pull ${{ inputs.docker-repo }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
+
+      - name: Configure Nonprod AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ inputs.aws-region }}
+          role-to-assume: arn:aws:iam::199567607212:role/AWS_199567607212_Github_Actions
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        
+      - name: Tag and Push image to ECR
+        run: |
+          docker tag ${{ inputs.docker-repo }}/${{ inputs.image-name }}:${{ inputs.image-tag }} ${{ inputs.ecr-repo }}/${{ inputs.aws-project-id }}/${{ inputs.ecr-image-name }}:${{ inputs.ecr-image-tag }}
+          docker push ${{ inputs.ecr-repo }}/${{ inputs.aws-project-id }}/${{ inputs.ecr-image-name }}:${{ inputs.ecr-image-tag }}
+
+      - name: Parse Environment Name from EKS Cluster
+        env:
+          EKS_CLUSTER: ${{ inputs.eks-cluster-name }}
+        # Note that this script is fragile - it only works so long as our cluster names have their environment in index 1 of a string split on `-`
+        run: echo "CLUSTER_ENV=$(cut -d '-' -f2 <<< $EKS_CLUSTER)" >> $GITHUB_ENV
+        shell: bash
+        
+      - name: Update deployment image
+        run: |
+          # Update the image in the deployment.yaml file
+          sed -i "s|image:.*|image: ${{ inputs.ecr-repo }}/${{ inputs.aws-project-id }}/${{ inputs.ecr-image-name }}:${{ inputs.ecr-image-tag }}|" ${{ inputs.deployment-yml-location }}
+          
+          # Optional: Print the modified deployment file for verification
+          cat ${{ inputs.deployment-yml-location }}
+      - name: Deploy to EKS
+        run: |
+          kubectl config set-context --current --namespace=${{ inputs.eks-namespace }}
+          kubectl apply -f \${{ inputs.deployment-yml-location }}
+          kubectl rollout restart deployment/\${{ inputs.deployment-name }}
+          kubectl rollout status deployment/\${{ inputs.deployment-name }}

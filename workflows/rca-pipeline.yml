@@ -1,0 +1,50 @@
+name: RCA Pipeline
+on:
+# Configured to trigger manually as we don't want ComAuto to run on every commit.
+  workflow_call:
+    inputs:
+      rallyMilestoneId:
+        description: Rally Milestone Id (Specifies the identifier of the Rally milestone used to track the deployment)
+        required: true
+        type: string
+      changeRequestTicketId:
+        description: Change Request Ticket Id (CR ticket id from service now to attach this report to)
+        required: false
+        type: string
+      additionalReportRecipients:
+        description: Additional Report Recipients(Comma seperated email ids without spaces to receive the precheck report as it is not sent to approvers)
+        required: true
+        type: string
+      optOutOfServiceNow:
+        description: Opt out of ServiceNow (Use in combination with the “optOutReason” parameter)
+        required: false
+        default: false
+        type: boolean
+      optOutReason:
+        description: Reason for opting out of ServiceNow. (Required where optOutOfServiceNow is true)
+        default: Precheck
+        required: false
+        type: string
+      precheck:
+        description: Precheck report (These are not sent for approval) Use precheck before the final RCA for deployment to check for warnings and errors.
+        required: true
+        default: true
+        type: boolean
+jobs:
+  generateComAutoReport:
+    runs-on: uhg-runner
+    steps:
+    - name: Run ComAuto
+      uses: optum-eeps/comauto-action@v0.5.0
+      with:
+        askId: AIDE_0085871
+        rallyWorkspaceId: 14457696030
+        userStoryApprovers: Opera_CM3_UserStory
+        cm3ItApprovers: Opera_CM3_IT
+        cm3BusinessApprovers: Opera_CM3_Business
+        rallyMilestoneId: ${{ inputs.rallyMilestoneId }}
+        changeRequestTicketId: ${{ inputs.changeRequestTicketId }}          
+        additionalReportRecipients: ${{ inputs.additionalReportRecipients }} # defaults to an empty string
+        isOptOutOfServiceNow: ${{ inputs.optOutOfServiceNow }} # defaults to false
+        optOutReason: ${{ inputs.optOutReason }} # defaults to an empty string
+        precheck: ${{ inputs.precheck }} # defaults to false   

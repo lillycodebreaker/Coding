@@ -1,0 +1,140 @@
+# Name of the Workflow
+name: python-pip-ci
+
+on:
+  workflow_call:
+    secrets:
+      cicd-user:
+        description: 'cicd user'
+        required: true
+      cicd-token:
+        description: 'token'
+        required: true
+      prisma-user:
+        description: 'token'
+        required: true
+      prisma-password:
+        description: 'token'
+        required: true
+      GHEC_TOKEN:
+        description: 'token'
+    inputs:
+      docker-repo:
+        description: 'Repo1 address'
+        required: true
+        type: string
+      image-name:
+        description: 'propel-services/service-name'
+        required: true
+        type: string
+      github-repo-name:
+        description: "Name of the Github repo being deployed"
+        required: true
+        type: string
+      github-org-name:
+        description: "Name of the Github organization containing the repo being deployed"
+        required: true
+        type: string
+      sonar-project-key:
+        description: "Project key for SonarQube"
+        required: true
+        type: string
+      python-ver:
+        description: "Version of python you're using for your application"
+        default: "3.13"
+        type: string
+env:
+  IMAGE_NAME: ${{ inputs.image-name }}
+  CONFIG_REPO: optum-eeps/epl-generic-agent-kustomize
+  DOCKER_REPOSITORY: ${{ inputs.docker-repo }}
+  SONAR_PROJECT_KEY: ${{ inputs.sonar-project-key }}
+  
+jobs:
+  get-prm-info:
+    uses: optum-eeps/epl-workflows/.github/workflows/prm-repo-info.yml@v3
+  quality-scans-then-docker-build:
+    #runs-on: uhg-runner
+    runs-on: runnerstage
+    needs: get-prm-info
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          # Full git history is needed for Sonar blame
+          fetch-depth: 0
+      - name: Get Release Version
+        id: next-version
+        uses: optum-eeps/epl-actions/auto-version-release@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          create-release: false
+          create-tag: false
+      - name: Generate manifest tag
+        id: docker-tag
+        uses: optum-eeps/epl-actions/generate-manifest-tag@v1
+        with:
+          build-version: ${{ steps.next-version.outputs.build-version }}
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-ver }}
+      - name: Update targetQG in vitals.yaml
+        run: |
+          sed -i '/targetQG:/ c\  targetQG: GATE_08' vitals.yaml
+          cat vitals.yaml
+        shell: bash
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/895341627204/locations/global/workloadIdentityPools/github/providers/uhc-tech-provider-org"
+          service_account: "opera-github-deploy@gldqaneh-ahf1-fog1-is5l-l3ap8s.iam.gserviceaccount.com"
+          create_credentials_file: true
+      - name: Python Scan
+        #uses: optum-eeps/epl-actions/python-scan@v1
+        uses: uhg-pipelines/epl-python/build-scan@v1
+        env:
+          GHEC_TOKEN: ${{ secrets.GHEC_TOKEN }}
+        with:
+          sonar-project-key: ${{ inputs.sonar-project-key }}
+          source-dir: app
+          test-dir: tests
+      - name: Extract Commit Details
+        id: extract-details
+        run: |
+          echo "commit_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "commit_date=$(git show -s --format=%cI ${{ github.sha }})" >> $GITHUB_OUTPUT
+          echo "commit_author=$(git show --format="%an" -s ${{ github.sha }})" >> $GITHUB_OUTPUT
+          echo "commit_url='https://github.com/${{ inputs.github-org-name }}/${{ inputs.github-repo-name }}/commit/${{ github.sha }}'" >> $GITHUB_OUTPUT
+          echo "docker_build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Append commit metadata to Dockerfile
+        run: |
+          echo -e '\n' >> Dockerfile
+          echo "ENV DOCKER_GIT_COMMIT='${{ steps.extract-details.outputs.commit_sha }}'" >> Dockerfile
+          echo "ENV DOCKER_GIT_COMMIT_DATE='${{ steps.extract-details.outputs.commit_date }}'" >> Dockerfile
+          echo "ENV DOCKER_GIT_COMMIT_AUTHOR='${{ steps.extract-details.outputs.commit_author }}'" >> Dockerfile
+          echo "ENV DOCKER_GIT_URL='${{ steps.extract-details.outputs.commit_url }}'" >> Dockerfile
+          echo "ENV DOCKER_BUILD_DATE='${{ steps.extract-details.outputs.docker_build_date }}'" >> Dockerfile
+          echo "ENV version='${{ inputs.ecr-image-tag }}'" >> Dockerfile
+        shell: bash
+      - name: Login to golden image Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: optum-docker-auth-prod.repo1.uhc.com
+          username: ${{ secrets.cicd-user }}
+          password: ${{ secrets.cicd-token }}
+      - name: Docker Build And Push
+        uses: optum-eeps/epl-actions/docker-build-push@v1
+        env:
+          GHEC_TOKEN: ${{ secrets.GHEC_TOKEN }}
+        with:
+          docker-image: ${{ inputs.image-name }}
+          docker-tag: ${{ steps.extract-details.outputs.commit_sha }}-latest
+          docker-repository: ${{ inputs.docker-repo }}
+          registry-token: ${{ secrets.cicd-token }}
+          registry-user: ${{ secrets.cicd-user }}
+          twistcli-user: "ms\\${{ secrets.prisma-user }}"
+          twistcli-password: ${{ secrets.prisma-password }}
+          score: 9.0
+          enable-xray: false #temp disable for testing
+          enable-twistcli: false #temp disable for testing

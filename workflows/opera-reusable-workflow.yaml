@@ -1,0 +1,230 @@
+# Name of the Workflow
+name: Resusable Workflow for Opera CICD Pipeline
+
+# Define when the workflow can be called
+on:
+  workflow_call:
+    inputs:
+      docker-repo:
+        description: 'Docker repository'
+        required: true
+        type: string
+      image-name:
+        description: 'Base name of the Docker image'
+        required: true
+        type: string
+      branch:
+        description: 'Name of branch being executed'
+        required: true
+        type: string
+      commit-tag:
+        description: 'commit tag #'
+        required: true
+        type: string
+      gcr-image-name:
+        description: 'GCR image name'
+        required: true
+        type: string
+      github-repo-name:
+        description: 'GitHub repository name'
+        required: true
+        type: string
+      github-org-name:
+        description: 'GitHub organization name'
+        required: true
+        type: string
+      sonar-project-key:
+        description: 'SonarQube project key'
+        required: true
+        type: string
+      gcr-repo:
+        description: 'Google Container Registry repository'
+        required: true
+        type: string
+      gcp-project-id-nonprod:
+        description: 'GCP project ID'
+        required: true
+        type: string
+      gcp-project-id-prod:
+        description: 'GCP project ID'
+        required: true
+        type: string
+      gke-cluster-dev:
+        description: 'GKE cluster name'
+        required: true
+        type: string
+      gke-cluster-uat:
+        description: 'GKE cluster name'
+        required: true
+        type: string
+      gke-cluster-prod:
+        description: 'GKE cluster name'
+        required: true
+        type: string
+      gke-zone:
+        description: 'GKE cluster zone'
+        required: true
+        type: string
+      gke-namespace-dev:
+        description: 'GKE namespace for dev'
+        required: true
+        type: string
+      gke-namespace-uat:
+        description: 'GKE namespace for uat'
+        required: true
+        type: string
+      gke-namespace-prod:
+        description: 'GKE namespace for prod'
+        required: true
+        type: string
+      deployment-name:
+        description: 'Deployment name'
+        required: true
+        type: string
+      gcp-service-account-email-nonprod:
+        description: 'GCP service account email for non-prod'
+        required: true
+        type: string
+      gcp-service-account-email-prod:
+        description: 'GCP service account email for prod'
+        required: true
+        type: string
+      deployment-yml-location-dev:
+        description: 'Path to the deployment YAML file for dev'
+        required: true
+        type: string
+      deployment-yml-location-uat:
+        description: 'Path to the deployment YAML file for uat'
+        required: true
+        type: string
+      deployment-yml-location-prod:
+        description: 'Path to the deployment YAML file for prod'
+        required: true
+        type: string
+      gcp-workload-identity-provider:
+        description: 'GCP workload identity provider'
+        required: true
+        type: string
+      gcp-workload-identity-provider-prod:
+        description: 'GCP workload identity provider'
+        required: true
+        type: string
+    secrets:
+      cicd-user:
+        description: 'CICD user'
+        required: true
+      cicd-token:
+        description: 'CICD token'
+        required: true
+      prisma-user:
+        description: 'Prisma user'
+        required: true
+      prisma-password:
+        description: 'Prisma password'
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+  security-events: write
+  checks: write
+  id-token: write
+
+jobs:
+  build-and-push:
+    uses: uhc-tech-provider/onboardmaintain-opera-actions/.github/workflows/backend-workflow.yml@main
+    secrets:
+      cicd-user: ${{ secrets.cicd-user }}
+      cicd-token: ${{ secrets.cicd-token }}
+      prisma-user: ${{ secrets.prisma-user }}
+      prisma-password: ${{ secrets.prisma-password }}
+    with:
+      docker-repo: ${{ inputs.docker-repo }}
+      image-name: ${{ inputs.image-name }}
+      github-repo-name: ${{ inputs.github-repo-name }}
+      github-org-name: ${{ inputs.github-org-name }}
+      sonar-project-key: ${{ inputs.sonar-project-key }}
+
+  gcp-deploy-dev:
+    needs: build-and-push
+    name: Deploy to Dev
+    if: inputs.branch == 'dev'
+    runs-on: uhg-runner
+    steps:
+      - name: Execute Dev Deployment
+        uses: uhc-tech-provider/onboardmaintain-opera-actions/deploy-to-gcp@main
+        with:
+          cicd-user: ${{ secrets.cicd-user }}
+          cicd-token: ${{ secrets.cicd-token }}
+          docker-repo: ${{ inputs.docker-repo }}
+          image-name: ${{ inputs.image-name }}
+          image-tag: ${{inputs.commit-tag}}-latest
+          gcr-repo: ${{ inputs.gcr-repo }}
+          gcp-project-id: ${{ inputs.gcp-project-id-nonprod }}
+          gcr-image-name:  ${{ inputs.gcr-image-name }}
+          gcr-image-tag: ${{inputs.commit-tag}}-dev
+          gke-cluster: ${{ inputs.gke-cluster-dev }}
+          gke-zone: ${{ inputs.gke-zone }}
+          gke-namespace: ${{ inputs.gke-namespace-dev }}
+          deployment-name: ${{ inputs.deployment-name }}
+          gcp-service-account-email: ${{ inputs.gcp-service-account-email-nonprod }}
+          gcp-workload-identity-provider: ${{ inputs.gcp-workload-identity-provider }}
+          environment: dev
+          dev-deployment-template: ${{ inputs.deployment-yml-location-dev }}
+
+  gcp-deploy-uat:
+    needs: build-and-push
+    name: Deploy to Stage
+    if: inputs.branch == 'uat'
+    runs-on: uhg-runner
+    steps:
+      - name: Execute Stage Deployment
+        uses: uhc-tech-provider/onboardmaintain-opera-actions/deploy-to-gcp@main
+        with:
+          cicd-user: ${{ secrets.cicd-user }}
+          cicd-token: ${{ secrets.cicd-token }}
+          docker-repo: ${{ inputs.docker-repo }}
+          image-name: ${{ inputs.image-name }}
+          image-tag: ${{inputs.commit-tag}}-latest
+          gcr-repo: ${{ inputs.gcr-repo }}
+          gcp-project-id: ${{ inputs.gcp-project-id-nonprod }}
+          gcr-image-name:  ${{ inputs.gcr-image-name }}
+          gcr-image-tag: ${{inputs.commit-tag}}-stage
+          gke-cluster: ${{ inputs.gke-cluster-uat }}
+          gke-zone: ${{ inputs.gke-zone }}
+          gke-namespace: ${{ inputs.gke-namespace-uat }}
+          deployment-name: ${{ inputs.deployment-name }}
+          gcp-service-account-email: ${{ inputs.gcp-service-account-email-nonprod }}
+          gcp-workload-identity-provider: ${{ inputs.gcp-workload-identity-provider }}
+          environment: stage
+          stage-deployment-template: ${{ inputs.deployment-yml-location-uat }}
+
+  gcp-deploy-prod:
+    needs: build-and-push
+    environment:
+      name: Production
+    name: Deploy to Prod
+    if: inputs.branch == 'main'
+    runs-on: uhg-runner
+    steps:
+      - name: Execute Production Deployment
+        uses: uhc-tech-provider/onboardmaintain-opera-actions/deploy-to-gcp@main
+        with:
+          cicd-user: ${{ secrets.cicd-user }}
+          cicd-token: ${{ secrets.cicd-token }}
+          docker-repo: ${{ inputs.docker-repo }}
+          image-name: ${{ inputs.image-name }}
+          image-tag: ${{inputs.commit-tag}}-latest
+          gcr-repo: ${{ inputs.gcr-repo }}
+          gcp-project-id: ${{ inputs.gcp-project-id-prod }}
+          gcr-image-name:  ${{ inputs.gcr-image-name }}
+          gcr-image-tag: ${{inputs.commit-tag}}-prod
+          gke-cluster: ${{ inputs.gke-cluster-prod }}
+          gke-zone: ${{ inputs.gke-zone }}
+          gke-namespace: ${{ inputs.gke-namespace-prod }}
+          deployment-name: ${{ inputs.deployment-name }}
+          gcp-service-account-email: ${{ inputs.gcp-service-account-email-prod }}
+          gcp-workload-identity-provider: ${{ inputs.gcp-workload-identity-provider-prod }}
+          environment: prod
+          prod-deployment-template: ${{ inputs.deployment-yml-location-prod }}

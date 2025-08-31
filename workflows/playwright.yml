@@ -1,0 +1,135 @@
+# name: Playwright Tests
+
+# on:
+#   push:
+#     branches:
+#       - playwright
+#   pull_request:
+#     branches:
+#       - playwright
+#   deployment:
+#     types: [created]    
+
+# jobs:
+#   test:
+#     runs-on: uhg-runner
+
+#     parameters:
+#       agent_name:
+#         type: string
+#         default: "OTHER"
+#         description: "Specify the agent name to run with (e.g., NDB, NPPES, Preprompt, OTHER)"
+      
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v4
+
+#     - name: Setup Node.js
+#       uses: actions/setup-node@v4
+#       with:
+#         node-version: '16'
+
+#     - name: Setup npm registry
+#       run: npm config set registry https://repo1.uhc.com/artifactory/api/npm/npm-virtual/
+
+#     - name: Setup npm auth
+#       run: npm config set always-auth false
+
+#     - name: Install dependencies
+#       run: npm install
+
+#     - name: Setup Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.11'
+
+#     - name: Install Python dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install -r playwright/requirements.txt
+
+#     - name: Install Playwright Browsers
+#       run: |
+#         sudo apt-get clean
+#         sudo apt-get update
+#         sudo curl -O https://repo1.uhc.com/artifactory/dl-google/google-chrome-stable_current_amd64.deb
+#         sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+#         npx playwright install 
+        
+#     - name: Run Playwright tests based on input
+#       run: |
+#         echo "Running tests for agent: ${{ inputs.agent_name }}"
+#         AGENT_NAME="${{ inputs.agent_name }}"
+#         TEST_PATH="playwright/${AGENT_NAME}/test_${AGENT_NAME}_Agent.py"
+#         python "$TEST_PATH" --tracing=retain-on-failure --cov=agents
+      
+#     - name: Upload Playwright traces
+#       uses: actions/upload-artifact@v4
+#       if: ${{ !cancelled() }}
+#       with:
+#         name: playwright-traces
+#         path: playwright-results/
+
+
+name: Playwright Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_name:
+        description: "Select an agent to run tests for"
+        required: true
+        type: choice
+        options:
+          - feedback
+          - health
+          - hold_code
+          - ndb
+          - nppes
+          - preprompt
+          - OTHER
+
+jobs:
+  test:
+    runs-on: uhg-runner
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Step 3: Install Python dependencies
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-playwright pytest-html
+
+      # Step 4: Install Playwright browsers
+      - name: Install Playwright browsers
+        run: |
+          playwright install --with-deps chromium
+
+      # Step 5: Run Playwright tests for selected agent
+      - name: Run Playwright tests for agent
+        run: |
+          echo "Running tests for agent: ${{ inputs.agent_name }}"
+          TEST_PATH="playwright/${{ inputs.agent_name }}/test_${{ inputs.agent_name }}_agent.py"
+          if [ -f "$TEST_PATH" ]; then
+            pytest "$TEST_PATH" --html=report.html --self-contained-html
+          else
+            echo "Test file for agent ${{ inputs.agent_name }} does not exist. Skipping..."
+          fi
+
+      # Step 6: Upload HTML report as an artifact
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-html-report
+          path: report.html

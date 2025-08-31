@@ -1,0 +1,294 @@
+name: GCR Promote and Deploy Pipeline
+
+on:
+  workflow_call:
+    secrets:
+      cicd-user:
+        description: 'cicd user'
+        required: true
+      cicd-token:
+        description: 'token'
+        required: true
+    inputs:
+      environment:
+        description: 'Select environment to promote to'
+        required: true
+        type: string
+      gcr-repo:
+        description: 'GCR repo location (e.g., gcr.io)'
+        required: true
+        type: string
+      gcp-project-id:
+        description: 'GCP project id'
+        required: true
+        type: string
+      gcp-project-id-prod:
+        description: 'PROD GCP project id'
+        required: true
+        type: string
+      gcp-service-account-email:
+        description: 'service account email'
+        required: true
+        type: string
+      gcp-service-account-email-prod:
+        description: 'service account email'
+        required: true
+        type: string
+      gcp-workload-identity-provider:
+        description: 'workload identity provider'
+        required: true
+        type: string
+      gcp-workload-identity-provider-prod:
+        description: 'prod workload identity provider'
+        required: true
+        type: string
+      app-name:
+        description: 'Application name'
+        required: true
+        type: string
+      gcr-image-name:
+        description: 'GCR image name (including registry path)'
+        required: true
+        type: string
+      stage-deployment-template:
+        description: 'Path to stage deployment yaml template'
+        required: true
+        type: string
+      prod-deployment-template:
+        description: 'Path to production deployment yaml template'
+        required: true
+        type: string
+      gke-zone:
+        description: 'GKE zone'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+jobs:
+
+  validate-input:
+    runs-on: runnerstage
+    steps:
+      - name: Validate Environment Input
+        run: |
+          if [[ "${{ inputs.environment }}" != "stage" && "${{ inputs.environment }}" != "prod" ]]; then
+            echo "::error::Invalid environment specified. Must be 'stage' or 'prod'"
+            exit 1
+          fi
+  promote-and-deploy:
+    if: |
+      always() &&
+      (inputs.environment == 'stage' ||
+       (inputs.environment == 'prod' ))
+    runs-on: runnerstage
+
+    env:
+      DEV_TAG: 'dev'
+      STAGE_TAG: 'stage'
+      PROD_TAG: 'prod'
+      DEV_CLUSTER: 'opera-dev-agents-gke-cluster'
+      STAGE_CLUSTER: 'opera-stage-agents-gke-cluster'
+      PROD_CLUSTER: 'opera-prod-agents-gke-cluster'
+      DEV_NAMESPACE: 'opera-dev'
+      STAGE_NAMESPACE: 'opera-stage'
+      PROD_NAMESPACE: 'opera-prod'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set Environment Variables
+        id: set-env
+        run: |
+          case "${{ inputs.environment }}" in
+            "stage")
+              echo "SOURCE_TAG=${DEV_TAG}" >> $GITHUB_ENV
+              echo "TARGET_TAG=${STAGE_TAG}" >> $GITHUB_ENV
+              echo "CLUSTER=${STAGE_CLUSTER}" >> $GITHUB_ENV
+              echo "NAMESPACE=${STAGE_NAMESPACE}" >> $GITHUB_ENV
+              echo "PROMOTION_CHAIN=dev-to-stage" >> $GITHUB_ENV
+              echo "WORKLOAD_IDENTITY_PROVIDER=${{ inputs.gcp-workload-identity-provider }}" >> $GITHUB_ENV
+              echo "SERVICE_ACCOUNT_EMAIL=${{ inputs.gcp-service-account-email }}" >> $GITHUB_ENV
+              ;;
+            "prod")
+              echo "SOURCE_TAG=${STAGE_TAG}" >> $GITHUB_ENV
+              echo "TARGET_TAG=${PROD_TAG}" >> $GITHUB_ENV
+              echo "CLUSTER=${PROD_CLUSTER}" >> $GITHUB_ENV
+              echo "NAMESPACE=${PROD_NAMESPACE}" >> $GITHUB_ENV
+              echo "PROMOTION_CHAIN=stage-to-prod" >> $GITHUB_ENV
+              echo "WORKLOAD_IDENTITY_PROVIDER=${{ inputs.gcp-workload-identity-provider }}" >> $GITHUB_ENV
+              echo "SERVICE_ACCOUNT_EMAIL=${{ inputs.gcp-service-account-email }}" >> $GITHUB_ENV
+              echo "WORKLOAD_IDENTITY_PROVIDER_PROD=${{ inputs.gcp-workload-identity-provider-prod }}" >> $GITHUB_ENV
+              echo "SERVICE_ACCOUNT_EMAIL_PROD=${{ inputs.gcp-service-account-email-prod }}" >> $GITHUB_ENV
+              ;;
+          esac
+
+      - name: Notify Production Deployment
+        if: inputs.environment == 'prod'
+        run: |
+          echo "⚠️ Production deployment initiated by ${{ github.actor }}"
+          echo "Time: $(date)"
+          echo "Repository: ${{ github.repository }}"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT_EMAIL }}
+          create_credentials_file: true
+
+      - name: Setup GCP SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker ${{ inputs.gcr-repo }}
+
+
+      - name: Verify Source Image
+        run: |
+          if ! gcloud container images describe ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${SOURCE_TAG}; then
+            echo "Source image not found: ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${SOURCE_TAG}"
+            exit 1
+          fi
+          echo "Source image verified successfully"
+
+      - name: Pull and Retag image from GCR
+        if: inputs.environment == 'prod'
+        run: |
+          echo "Pulling image from GCR"
+          docker pull ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${SOURCE_TAG}
+          docker tag ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${SOURCE_TAG} ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id-prod }}/${{ inputs.gcr-image-name }}:${TARGET_TAG}
+          echo "Image pulled and retagged successfully"
+
+
+      - name: Authenticate to Google Cloud PROD
+        if: inputs.environment == 'prod'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER_PROD }}
+          service_account: ${{ env.SERVICE_ACCOUNT_EMAIL_PROD }}
+          create_credentials_file: true
+
+      - name: Configure Docker for GCR PROD
+        run: |
+          gcloud auth configure-docker ${{ inputs.gcr-repo }}
+
+      - name: Promote Image
+        if: inputs.environment != 'prod'
+        run: |
+          echo "Promoting image from ${SOURCE_TAG} to ${TARGET_TAG}"
+          gcloud container images add-tag \
+            "${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${SOURCE_TAG}" \
+            "${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${TARGET_TAG}" \
+            --quiet
+
+      - name: Promote Image to PROD
+        if: inputs.environment == 'prod'
+        run: |
+          docker push ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id-prod }}/${{ inputs.gcr-image-name }}:${TARGET_TAG}
+          echo "Image pushed successfully to PROD"
+
+
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location: ${{ inputs.gke-zone }}
+          use_dns_based_endpoint: true
+
+      - name: Install required packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext-base
+      - name: Assign Env Variables
+        run: |
+          if [ "${NAMESPACE}" = "${DEV_NAMESPACE}" ]; then  
+            echo "DEPLOY_ENV=dev" >> $GITHUB_ENV  
+          elif [ "${NAMESPACE}" = "${STAGE_NAMESPACE}" ]; then  
+            echo "DEPLOY_ENV=stage" >> $GITHUB_ENV  
+          elif [ "${NAMESPACE}" = "${PROD_NAMESPACE}" ]; then  
+            echo "DEPLOY_ENV=prod" >> $GITHUB_ENV  
+          fi
+      - name: Generate and Apply Deployment
+        env:
+          APP_NAME: ${{ inputs.app-name }}
+          GCR_REPO: ${{ inputs.gcr-repo }}
+          GCR_IMAGE_NAME: ${{ inputs.gcr-image-name }}
+          TARGET_TAG: ${{ env.TARGET_TAG }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+        run: |
+          # Select the right template and project ID based on environment
+          if [ "${{ inputs.environment }}" = "stage" ]; then
+          TEMPLATE_PATH="${{ inputs.stage-deployment-template }}"
+          export GCP_PROJECT_ID="${{ inputs.gcp-project-id }}"
+          elif [ "${{ inputs.environment }}" = "prod" ]; then
+          TEMPLATE_PATH="${{ inputs.prod-deployment-template }}"
+          export GCP_PROJECT_ID="${{ inputs.gcp-project-id-prod }}"
+          fi
+          
+          # Generate deployment yaml from template
+          envsubst < $TEMPLATE_PATH > deployment.yml
+          
+          sed -i 's/deploy_env/${{ env.DEPLOY_ENV }}/g' deployment.yml
+          
+          # Print generated deployment for verification
+          echo "Generated deployment configuration:"
+          cat deployment.yml
+          
+          # Apply deployment
+          GODEBUG=tlskyber=0 kubectl config set-context --current --namespace=${NAMESPACE}
+          GODEBUG=tlskyber=0 kubectl apply -f deployment.yml
+          GODEBUG=tlskyber=0 kubectl rollout restart deployment/${APP_NAME}
+          GODEBUG=tlskyber=0 kubectl rollout status deployment/${APP_NAME}
+
+      - name: Verify Deployment
+        env:
+          APP_NAME: ${{ inputs.app-name }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+        run: |
+          # Basic deployment verification
+          REPLICAS=$(GODEBUG=tlskyber=0 kubectl get deployment ${APP_NAME} -n ${NAMESPACE} -o jsonpath='{.status.availableReplicas}')
+          DESIRED=$(GODEBUG=tlskyber=0 kubectl get deployment ${APP_NAME} -n ${NAMESPACE} -o jsonpath='{.spec.replicas}')
+          
+          if [ "$REPLICAS" != "$DESIRED" ]; then
+            echo "Deployment verification failed. Available replicas: $REPLICAS, Desired: $DESIRED"
+            exit 1
+          fi
+          echo "Deployment verified successfully"
+
+      - name: Production Deployment Logging
+        if: inputs.environment == 'prod'
+        run: |
+          echo "📝 Production Deployment Log"
+          echo "-------------------------"
+          echo "Deployer: ${{ github.actor }}"
+          echo "Timestamp: $(date)"
+          echo "Image: ${{ inputs.gcr-repo }}/${{ inputs.gcp-project-id }}/${{ inputs.gcr-image-name }}:${TARGET_TAG}"
+          echo "Approval Status: Approved by OPERA_AI_Admins member"
+
+      - name: Promotion and Deployment Summary
+        if: success()
+        run: |
+          echo "✅ Promotion and Deployment Summary"
+          echo "--------------------------------"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Promoted from: ${SOURCE_TAG}"
+          echo "Promoted to: ${TARGET_TAG}"
+          echo "Cluster: ${CLUSTER}"
+          echo "Namespace: ${NAMESPACE}"
+          echo "Application: ${{ inputs.app-name }}"
+          echo "Status: Successfully completed"
+
+      - name: Handle Failure
+        if: failure()
+        run: |
+          echo "❌ Promotion or Deployment Failed"
+          echo "--------------------------------"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Please check the logs above for detailed error information"
+          exit 1
