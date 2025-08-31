@@ -1,0 +1,112 @@
+{
+  "model_selected": "LogisticRegression",
+  "metrics": {
+    "roc_auc": 0.5395937804394098,
+    "pr_auc": 0.5339362948755544
+  },
+  "threshold_selection": {
+    "best_threshold": 0.3931597792740074,
+    "precision": 0.477,
+    "recall": 1.0,
+    "utility": 159950.00000001467
+  },
+  "top_feature_importances": [
+    {
+      "feature": "e_bill_enrolled=1",
+      "importance": 0.09912535209090882
+    },
+    {
+      "feature": "e_bill_enrolled=0",
+      "importance": 0.08206306259139858
+    },
+    {
+      "feature": "portal_account_created=1",
+      "importance": 0.06971708150031215
+    },
+    {
+      "feature": "portal_account_created=0",
+      "importance": 0.05265479118111973
+    },
+    {
+      "feature": "payment_method=check",
+      "importance": 0.04517596762947026
+    },
+    {
+      "feature": "premium_mode=quarterly",
+      "importance": 0.04477285891369388
+    },
+    {
+      "feature": "payment_method=ach",
+      "importance": 0.04322441569932437
+    },
+    {
+      "feature": "premium_mode=monthly",
+      "importance": 0.04264855882270054
+    },
+    {
+      "feature": "underwriting_class=preferred",
+      "importance": 0.03554749293181189
+    },
+    {
+      "feature": "has_prior_aaa_membership=1",
+      "importance": 0.029527649502073722
+    }
+  ],
+  "top_risk_cases": [
+    {
+      "rank": 1,
+      "risk_prob": 0.6035887139394092,
+      "reasons": [
+        "Monthly premium mode increases lapse risk.",
+        "Not enrolled in e-bill; enrollment improves payment stability.",
+        "No portal account created; engagement is low."
+      ],
+      "agent_brief": "Policy TEST_1 is high risk (0.60). Drivers: Monthly premium mode increases lapse risk., Not enrolled in e-bill; enrollment improves payment stability., No portal account created; engagement is low.. Recommended actions: offer ACH incentive, guide e-bill enrollment, schedule agent follow-up within 7 days.",
+      "customer_message": "Hi there \u2014 we want to make managing your policy easy. You can set up automatic payments (ACH) and paperless e\u2011billing in minutes. If you have any questions, we\u2019re here to help."
+    },
+    {
+      "rank": 2,
+      "risk_prob": 0.5969501656694128,
+      "reasons": [
+        "Monthly premium mode increases lapse risk.",
+        "Not enrolled in e-bill; enrollment improves payment stability.",
+        "No portal account created; engagement is low."
+      ],
+      "agent_brief": "Policy TEST_2 is high risk (0.60). Drivers: Monthly premium mode increases lapse risk., Not enrolled in e-bill; enrollment improves payment stability., No portal account created; engagement is low.. Recommended actions: offer ACH incentive, guide e-bill enrollment, schedule agent follow-up within 7 days.",
+      "customer_message": "Hi there \u2014 we want to make managing your policy easy. You can set up automatic payments (ACH) and paperless e\u2011billing in minutes. If you have any questions, we\u2019re here to help."
+    },
+    {
+      "rank": 3,
+      "risk_prob": 0.5894874232516837,
+      "reasons": [
+        "Monthly premium mode increases lapse risk.",
+        "Check payment method correlates with higher lapse risk; consider switching to ACH.",
+        "Not enrolled in e-bill; enrollment improves payment stability."
+      ],
+      "agent_brief": "Policy TEST_3 is high risk (0.59). Drivers: Monthly premium mode increases lapse risk., Check payment method correlates with higher lapse risk; consider switching to ACH., Not enrolled in e-bill; enrollment improves payment stability.. Recommended actions: offer ACH incentive, guide e-bill enrollment, schedule agent follow-up within 7 days.",
+      "customer_message": "Hi there \u2014 we want to make managing your policy easy. You can set up automatic payments (ACH) and paperless e\u2011billing in minutes. If you have any questions, we\u2019re here to help."
+    },
+    {
+      "rank": 4,
+      "risk_prob": 0.5892407020088686,
+      "reasons": [
+        "Monthly premium mode increases lapse risk.",
+        "Check payment method correlates with higher lapse risk; consider switching to ACH.",
+        "Not enrolled in e-bill; enrollment improves payment stability."
+      ],
+      "agent_brief": "Policy TEST_4 is high risk (0.59). Drivers: Monthly premium mode increases lapse risk., Check payment method correlates with higher lapse risk; consider switching to ACH., Not enrolled in e-bill; enrollment improves payment stability.. Recommended actions: offer ACH incentive, guide e-bill enrollment, schedule agent follow-up within 7 days.",
+      "customer_message": "Hi there \u2014 we want to make managing your policy easy. You can set up automatic payments (ACH) and paperless e\u2011billing in minutes. If you have any questions, we\u2019re here to help."
+    },
+    {
+      "rank": 5,
+      "risk_prob": 0.5878289840052408,
+      "reasons": [
+        "Monthly premium mode increases lapse risk.",
+        "Check payment method correlates with higher lapse risk; consider switching to ACH.",
+        "Not enrolled in e-bill; enrollment improves payment stability."
+      ],
+      "agent_brief": "Policy TEST_5 is high risk (0.59). Drivers: Monthly premium mode increases lapse risk., Check payment method correlates with higher lapse risk; consider switching to ACH., Not enrolled in e-bill; enrollment improves payment stability.. Recommended actions: offer ACH incentive, guide e-bill enrollment, schedule agent follow-up within 7 days.",
+      "customer_message": "Hi there \u2014 we want to make managing your policy easy. You can set up automatic payments (ACH) and paperless e\u2011billing in minutes. If you have any questions, we\u2019re here to help."
+    }
+  ]
+}

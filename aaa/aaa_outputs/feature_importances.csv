@@ -1,0 +1,11 @@
+feature,importance
+e_bill_enrolled=1,0.09912535209090882
+e_bill_enrolled=0,0.08206306259139858
+portal_account_created=1,0.06971708150031215
+portal_account_created=0,0.05265479118111973
+payment_method=check,0.04517596762947026
+premium_mode=quarterly,0.04477285891369388
+payment_method=ach,0.04322441569932437
+premium_mode=monthly,0.04264855882270054
+underwriting_class=preferred,0.03554749293181189
+has_prior_aaa_membership=1,0.029527649502073722
