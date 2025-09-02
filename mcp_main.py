@@ -5,64 +5,12 @@ This is a *deterministic* implementation, without any AI/ML components.
 
 # ~ Imports
 
-import logging
-from datetime import datetime
-
-import opera_common_utils.logger
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastmcp import FastMCP
 from starlette.responses import JSONResponse
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack
-from typing import Optional
 
-
-from app import schemas, utils
-from app.configs import config
-from app.middleware.logging_middleware import LoggingMiddleware
-
-import google.auth
-from google.auth.transport.requests import AuthorizedSession
-import requests
-from requests.adapters import HTTPAdapter
-from google.cloud import bigquery
-import asyncio
-
-# ~ Setup
-#logging.basicConfig(
-#    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-#)
-#logger = logging.getLogger(__name__)
-
-# ~ Placeholder Config
-class Config:
-    class Settings:
-        SERVICE_NAME = "FeeScheduleBuildService"
-        API_TITLE = "Fee Schedule MCP API"
-        API_DESCRIPTION = "API for Fee Schedule Build MCP Agent"
-        API_VERSION = "1.0.0"
-    settings = Settings()
-
-config = Config()
-
-# ~ Placeholder Middleware
-#class LoggingMiddleware:
-#    def __init__(self, app):
-#        self.app = app
-
-# ~ Placeholder Database Connector
-#class AsyncDatabaseConnector:
-#    def __init__(self):
-#        self.table = "project.dataset.table"
-#        self.client = None  # Replace with actual BigQuery client
-
-# Global database connector instance
-#db_connector = AsyncDatabaseConnector()
-#specialty_data = SpecialtyData(db_connector=db_connector)
 
 mcp: FastMCP = FastMCP(
     config.settings.SERVICE_NAME,
@@ -77,7 +25,7 @@ app = FastAPI(
     lifespan=mcp_app.router.lifespan_context,
 )
 
-app.mount("/FeeScheduleBuild", mcp_app)
+app.mount("/TestFunction", mcp_app)
 
 # ~ Middleware
 #app.add_middleware(LoggingMiddleware)
@@ -115,24 +63,25 @@ def health_check():
         "timestamp": current_time,
         "version": config.settings.API_VERSION,
         "endpoints": [
-            {"endpoint": "/api/FeeScheduleBuild", "status": "operational"},
+            {"endpoint": "/api/TestFunction", "status": "operational"},
             {"endpoint": "/health", "status": "operational"},
-            {"endpoint": "/FeeScheduleBuild/sse", "status": "operational"},
-            {"endpoint": "/FeeScheduleBuild/messages", "status": "operational"},
+            {"endpoint": "/TestFunction/sse", "status": "operational"},
+            {"endpoint": "/TestFunction/messages", "status": "operational"},
         ],
     }
 
-@app.get("/api/FeeScheduleBuild/health")
+@app.get("/api/TestFunction/health")
 async def healthcheck_endpoint():
     return Response(status_code=200, content="ok")
 
-@app.post("/api/FeeScheduleBuild")
-async def FeeScheduleBuildApi(feeSchedule: str, buildDate: str = "", sessionId: str = ""):
+@app.post("/api/TestFunction")
+async def TestFunctionApi(input: str="", sessionId: str = ""):
     # Placeholder response
-    return JSONResponse(content={"feeSchedule": feeSchedule, "buildDate": buildDate, "Success": True, "sessionId": sessionId}, status_code=200)
+    return JSONResponse(content={"input": input, "Success": True, "sessionId": sessionId}, status_code=200)
     
 # ~ MCP Server
 @mcp.tool()
-async def FeeScheduleBuild(feeSchedule: str="", buildDate: str = "", sessionId: str = "") -> dict:
-    return {"feeSchedule": feeSchedule, "buildDate": buildDate}
+async def TestFunction(input: str="", sessionId: str = "") -> dict:
+    return {"input": input}
+
 
