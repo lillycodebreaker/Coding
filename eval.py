@@ -355,7 +355,9 @@ POST /report/summary
   "generation": {...response from /evaluate/generation...}
 }
 ```
-
+{
+  "summary": "Predictive — ROC-AUC: 1.000, PR-AUC: 1.000, Precision/Recall@thr: 1.000/1.000, F1: 1.000, Lift@topK: 2.00.\n  Group A: AUC=1.000, PosRate@thr=0.600\n  Group B: AUC=1.000, PosRate@thr=0.400\nRetrieval — P@K: 0.500, R@K: 1.000, MAP@K: 0.753, nDCG@K: 0.946\nGeneration — Relevance: 0.600, Faithfulness: 0.583, Hallucination: no."
+}
 ---
 
 ## Notes & next steps
