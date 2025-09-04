@@ -1,5 +1,3 @@
-Love this—here’s a crisp concept for the **Evaluation API Toolkit** and a working **Python FastAPI microservice** you can run today.
-
 # Concept: Evaluation API Toolkit (plug-and-play)
 
 * **API-first** service that any team (predictive, RAG/chatbot, vendor tools) can POST metrics to—no repo reshuffles required.
