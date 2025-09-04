@@ -1,0 +1,86 @@
+Let’s build a conceptual sample application using a **Large Language Model (LLM)** tailored for a life insurance provider like **AAA Life**, focusing on three core functions: **underwriting**, **claims processing**, and **customer retention**.
+
+---
+
+## 🏗️ Sample LLM-Powered Insurance App: “LifeLens AI”
+
+### 🔧 Architecture Overview
+```
+[User Interface] → [LLM Orchestrator] → [MCP Client] → [MCP Servers / APIs]
+                                 ↘︎
+                          [Data Lake / CRM / Policy DB]
+```
+
+---
+
+## 1️⃣ Underwriting Assistant
+
+### 🎯 Goal:
+Speed up risk assessment by analyzing unstructured medical records and applications.
+
+### 💡 LLM Capabilities:
+- Summarize **Attending Physician Statements (APS)** and flag risk indicators
+- Extract key terms from PDFs or scanned documents
+- Generate underwriting narratives for human review
+
+### 🧪 Sample Prompt:
+```python
+prompt = f"""
+Analyze the following APS and summarize key health risks, medications, and lifestyle factors.
+Document: {aps_text}
+"""
+response = llm.generate(prompt)
+```
+
+---
+
+## 2️⃣ Claims Processor
+
+### 🎯 Goal:
+Automate first notice of loss (FNOL), fraud detection, and document triage.
+
+### 💡 LLM Capabilities:
+- Classify claim types from emails or call transcripts
+- Detect inconsistencies or missing documentation
+- Summarize claim history for adjusters
+
+### 🧪 Sample Prompt:
+```python
+prompt = f"""
+Summarize this claim submission and flag any missing documents or inconsistencies.
+Claim Notes: {claim_text}
+"""
+response = llm.generate(prompt)
+```
+
+---
+
+## 3️⃣ Retention & Engagement Engine
+
+### 🎯 Goal:
+Boost customer retention by identifying churn risks and personalizing outreach.
+
+### 💡 LLM Capabilities:
+- Analyze sentiment from support chats or surveys
+- Generate personalized renewal messages
+- Recommend upsell/cross-sell products based on life stage
+
+### 🧪 Sample Prompt:
+```python
+prompt = f"""
+Review this customer’s interaction history and generate a personalized retention email.
+History: {interaction_log}
+"""
+response = llm.generate(prompt)
+```
+
+---
+
+## 🧠 Bonus: Integration with AAA Life Systems
+- 🔗 Connect to **Salesforce** or **AWS DynamoDB** for policy data
+- 🧾 Use **Amazon Textract** for document parsing
+- 🛡️ Apply **Amazon Comprehend Medical** for clinical term extraction
+
+---
+
+Would you like me to turn this into a working prototype in Python or sketch out the API endpoints for each module?
